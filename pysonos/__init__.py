@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""SoCo (Sonos Controller) is a simple library to control Sonos speakers."""
+"""A SoCo fork with fixes for Home Assistant."""
 
 # There is no need for all strings here to be unicode, and Py2 cannot import
 # modules with unicode names so do not use from __future__ import
@@ -16,11 +16,11 @@ from .discovery import discover
 from .exceptions import SoCoException, UnknownSoCoException
 
 # Will be parsed by setup.py to determine package metadata
-__author__ = 'The SoCo-Team <python-soco@googlegroups.com>'
+__author__ = 'Anders Melchiorsen <amelchio@nogoto.net>'
 # Please add the suffix "+" to the version after release, to make it
 # possible infer whether in development code from the version string
-__version__ = '0.16'
-__website__ = 'https://github.com/SoCo/SoCo'
+__version__ = '0.0.1'
+__website__ = 'https://github.com/amelchio/pysonos'
 __license__ = 'MIT License'
 
 # You really should not `import *` - it is poor practice

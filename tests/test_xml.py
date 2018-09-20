@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals
 
-from soco import xml
+from pysonos import xml
 
 
 def test_ns_tag():

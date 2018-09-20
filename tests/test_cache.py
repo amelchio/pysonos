@@ -3,14 +3,14 @@
 
 from __future__ import unicode_literals
 
-from soco.cache import (
+from pysonos.cache import (
     Cache, NullCache, TimedCache
 )
 
 
 def test_instance_creation():
     assert isinstance(Cache(), TimedCache)
-    from soco import config
+    from pysonos import config
     config.CACHE_ENABLED = False
     assert isinstance(Cache(), NullCache)
     config.CACHE_ENABLED = True
