@@ -9,12 +9,12 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from soco.exceptions import DIDLMetadataError
-from soco.ms_data_structures import (
+from pysonos.exceptions import DIDLMetadataError
+from pysonos.ms_data_structures import (
     MSAlbum, MSAlbumList, MSArtist, MSArtistTracklist,
     MSCollection, MSFavorites, MSPlaylist, MSTrack
 )
-from soco.xml import XML
+from pysonos.xml import XML
 
 ##############################################################################
 # Example XML and the content dict to compare with for MS items              #

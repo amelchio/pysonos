@@ -1,7 +1,7 @@
 
-lint: soco
-	flake8 soco
-	pylint soco
+lint: pysonos
+	flake8 pysonos
+	pylint pysonos
 
 test:
 	py.test
@@ -15,7 +15,7 @@ clean:
 
 	find . -name '*~' -delete
 	find . -name '__pycache__' -delete
-	rm -rf soco.egg-info
+	rm -rf pysonos.egg-info
 	rm -rf dist
 	$(MAKE) -C doc clean
 

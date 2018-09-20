@@ -6,9 +6,9 @@ import select
 
 from mock import patch, MagicMock as Mock, PropertyMock, call
 
-from soco import discover
-from soco import config
-from soco.discovery import any_soco, by_name
+from pysonos import discover
+from pysonos import config
+from pysonos.discovery import any_soco, by_name
 
 IP_ADDR = '192.168.1.101'
 TIMEOUT = 5
@@ -27,7 +27,7 @@ class TestDiscover:
         # Stop getfqdn from working, to avoud network access
         monkeypatch.setattr('socket.getfqdn', Mock())
         # prevent creation of soco instances
-        monkeypatch.setattr('soco.config.SOCO_CLASS', Mock())
+        monkeypatch.setattr('pysonos.config.SOCO_CLASS', Mock())
         # Fake return value for select
         monkeypatch.setattr(
             'select.select', Mock(return_value = ([sock], 1, 1)))
@@ -74,7 +74,7 @@ def test_by_name():
     mock_to_be_found = mymock
 
     # Patch out discover and test
-    with patch("soco.discovery.discover") as discover_:
+    with patch("pysonos.discovery.discover") as discover_:
         discover_.return_value = devices
 
         # Test not found

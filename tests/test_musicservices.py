@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import mock
 import pytest
 
-import soco.soap
-from soco.exceptions import MusicServiceException
-from soco.music_services.accounts import Account
-from soco.music_services.music_service import (
+import pysonos.soap
+from pysonos.exceptions import MusicServiceException
+from pysonos.music_services.accounts import Account
+from pysonos.music_services.music_service import (
     MusicService, MusicServiceSoapClient, desc_from_uri
 )
 
@@ -182,10 +182,10 @@ def patch_music_services(monkeypatch):
         MusicService, '_get_music_services_data_xml',
         mock.Mock(return_value=SERVICES_DESCRIPTOR_LIST))
     monkeypatch.setattr(
-        soco.soap, 'SoapMessage',
+        pysonos.soap, 'SoapMessage',
         mock.Mock())
     monkeypatch.setattr(
-        soco.music_services.music_service, 'MusicServiceSoapClient',
+        pysonos.music_services.music_service, 'MusicServiceSoapClient',
         mock.Mock()
     )
     monkeypatch.setattr(

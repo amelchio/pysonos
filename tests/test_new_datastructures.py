@@ -5,9 +5,9 @@ from __future__ import unicode_literals
 
 import pytest
 
-from soco import data_structures
-from soco.exceptions import DIDLMetadataError
-from soco.xml import XML
+from pysonos import data_structures
+from pysonos.exceptions import DIDLMetadataError
+from pysonos.xml import XML
 
 
 def assert_xml_equal(left, right, explain=None):

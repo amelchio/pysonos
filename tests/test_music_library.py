@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 import mock
 import pytest
 
-from soco import SoCo
-from soco.exceptions import SoCoUPnPException
+from pysonos import SoCo
+from pysonos.exceptions import SoCoUPnPException
 
 IP_ADDR = '192.168.1.101'
 
@@ -20,11 +20,11 @@ def moco():
     services = (
         'AVTransport', 'RenderingControl', 'DeviceProperties',
         'ContentDirectory', 'ZoneGroupTopology')
-    patchers = [mock.patch('soco.core.{}'.format(service))
+    patchers = [mock.patch('pysonos.core.{}'.format(service))
                 for service in services]
     for patch in patchers:
         patch.start()
-    with mock.patch("soco.SoCo.is_coordinator",
+    with mock.patch("pysonos.SoCo.is_coordinator",
                     new_callable=mock.PropertyMock) as is_coord:
         is_coord = True
         yield SoCo(IP_ADDR)
