@@ -1,15 +1,7 @@
 language: python
 python:
-  - "pypy" # Run slowest first so as not to hold up the build
-  - "pypy3"
-  - "2.7"
-  - "3.3"
-  - "3.4"
-  - "3.5"
+  - "3.5.3"
   - "3.6"
-  - "3.5-dev"
-  - "3.6-dev"
-  - "3.7-dev"
   - "nightly"
 
 matrix:
@@ -27,9 +19,9 @@ install:
   - pip install -e .
 
 script:
-  - flake8 soco
-  - pylint soco
-  - py.test --cov-config .coveragerc --cov soco .
+  - flake8 pysonos
+  - pylint pysonos
+  - py.test --cov-config .coveragerc --cov pysonos .
 
 after_script:
   - coveralls

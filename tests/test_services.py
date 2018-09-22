@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 
 import pytest
 
-from soco.exceptions import SoCoUPnPException
-from soco.services import (
+from pysonos.exceptions import SoCoUPnPException
+from pysonos.services import (
     Service, Action, Argument, Vartype
 )
 

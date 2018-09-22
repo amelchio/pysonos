@@ -4,15 +4,15 @@ from __future__ import unicode_literals
 import mock
 import pytest
 
-from soco import SoCo
-from soco.data_structures import (
+from pysonos import SoCo
+from pysonos.data_structures import (
     DidlMusicTrack, to_didl_string
 )
-from soco.exceptions import (
+from pysonos.exceptions import (
     SoCoSlaveException, SoCoUPnPException
 )
-from soco.groups import ZoneGroup
-from soco.xml import XML
+from pysonos.groups import ZoneGroup
+from pysonos.xml import XML
 
 IP_ADDR = '192.168.1.101'
 
@@ -27,11 +27,11 @@ def moco():
     services = (
         'AVTransport', 'RenderingControl', 'DeviceProperties',
         'ContentDirectory', 'ZoneGroupTopology')
-    patchers = [mock.patch('soco.core.{}'.format(service))
+    patchers = [mock.patch('pysonos.core.{}'.format(service))
                 for service in services]
     for patch in patchers:
         patch.start()
-    with mock.patch("soco.SoCo.is_coordinator",
+    with mock.patch("pysonos.SoCo.is_coordinator",
                     new_callable=mock.PropertyMock) as is_coord:
         is_coord = True
         yield SoCo(IP_ADDR)
@@ -49,7 +49,7 @@ def moco_only_on_master():
     services = (
         'AVTransport', 'RenderingControl', 'DeviceProperties',
         'ContentDirectory', 'ZoneGroupTopology')
-    patchers = [mock.patch('soco.core.{}'.format(service))
+    patchers = [mock.patch('pysonos.core.{}'.format(service))
                 for service in services]
     for patch in patchers:
         patch.start()
@@ -204,7 +204,19 @@ class TestSoco:
     def test_soco_repr(self, moco):
         assert repr(moco) == 'SoCo("{}")'.format(IP_ADDR)
 
-    @mock.patch("soco.core.requests")
+    @pytest.mark.parametrize('model_name', (
+        ('Play:5', False),
+        ('Sonos One', False),
+        ('PLAYBAR', True),
+        ('Sonos Beam', True),
+        ('Sonos Playbar', True),
+        ('Sonos Playbase', True)))
+    def test_soco_is_soundbar(self, moco, model_name):
+        moco._is_soundbar = None
+        moco.speaker_info['model_name'] = model_name[0]
+        assert moco.is_soundbar == model_name[1]
+
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize('refresh', [None, False, True])
     def test_soco_get_speaker_info_speaker_not_set_refresh(
             self, mocr, moco_zgs, refresh):
@@ -243,7 +255,7 @@ class TestSoco:
         }
         assert should == res
 
-    @mock.patch("soco.core.requests")
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize('refresh', [None, False])
     def test_soco_get_speaker_info_speaker_set_no_refresh(
             self, mocr, moco_zgs, refresh):
@@ -268,7 +280,7 @@ class TestSoco:
         # no network request performed
         assert not mocr.get.called
 
-    @mock.patch("soco.core.requests")
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize('should', [{}, {'info': "yes"}])
     def test_soco_get_speaker_info_speaker_set_no_refresh(
             self, mocr, moco_zgs, should):
@@ -397,6 +409,16 @@ class TestAVTransport:
         moco.avTransport.Play.assert_called_with(
             [('InstanceID', 0), ('Speed', 1)]
         )
+
+    def test_soco_play_uri_with_title(self, moco):
+        uri = 'http://archive.org/download/tend2005-07-16.flac16/tend2005-07-16t10wonderboy_64kb.mp3'
+        moco.play_uri(uri, title='<Fast & Loose>')
+
+        moco.avTransport.SetAVTransportURI.assert_called_with([
+            ('InstanceID', 0),
+            ('CurrentURI', uri),
+            ('CurrentURIMetaData', '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="R:0/0/0" parentID="R:0/0" restricted="true"><dc:title>&lt;Fast &amp; Loose&gt;</dc:title><upnp:class>object.item.audioItem.audioBroadcast</upnp:class><desc id="cdudn" nameSpace="urn:schemas-rinconnetworks-com:metadata-1-0/">SA_RINCON65031_</desc></item></DIDL-Lite>')
+        ])
 
     def test_soco_pause(self, moco):
         moco.pause()
@@ -926,14 +948,14 @@ class TestZoneGroupTopology:
 
 
 def test_only_on_master_true(moco_only_on_master):
-    with mock.patch('soco.SoCo.is_coordinator', new_callable=mock.PropertyMock) as is_coord:
+    with mock.patch('pysonos.SoCo.is_coordinator', new_callable=mock.PropertyMock) as is_coord:
         is_coord.return_value = True
         moco_only_on_master.play()
         is_coord.assert_called_once_with()
 
 
 def test_not_on_master_false(moco_only_on_master):
-    with mock.patch('soco.SoCo.is_coordinator', new_callable=mock.PropertyMock) as is_coord:
+    with mock.patch('pysonos.SoCo.is_coordinator', new_callable=mock.PropertyMock) as is_coord:
         is_coord.return_value = False
         with pytest.raises(SoCoSlaveException):
             moco_only_on_master.play()

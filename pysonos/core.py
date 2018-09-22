@@ -4,13 +4,14 @@
 the main entry to the SoCo functionality
 """
 
-from __future__ import unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 import datetime
 import logging
 import re
 import socket
 from functools import wraps
+from xml.sax.saxutils import escape
 import warnings
 
 import requests
@@ -168,6 +169,7 @@ class SoCo(_SocoSingletonBase):
         is_visible
         is_bridge
         is_coordinator
+        is_soundbar
         bass
         treble
         loudness
@@ -259,6 +261,7 @@ class SoCo(_SocoSingletonBase):
         self._groups = set()
         self._is_bridge = None
         self._is_coordinator = False
+        self._is_soundbar = None
         self._player_name = None
         self._uid = None
         self._household_id = None
@@ -369,6 +372,18 @@ class SoCo(_SocoSingletonBase):
         # zone group topology, to capitalise on any caching.
         self._parse_zone_group_state()
         return self._is_coordinator
+
+    @property
+    def is_soundbar(self):
+        """bool: Is this zone a soundbar (i.e. has night mode etc.)?"""
+        if self._is_soundbar is None:
+            if not self.speaker_info:
+                self.get_speaker_info()
+
+            model_name = self.speaker_info['model_name'].lower()
+            self._is_soundbar = any(model_name.endswith(s) for s in SOUNDBARS)
+
+        return self._is_soundbar
 
     @property
     def play_mode(self):
@@ -604,7 +619,9 @@ class SoCo(_SocoSingletonBase):
                 'metadata-1-0/">{service}</desc></item></DIDL-Lite>'
             tunein_service = 'SA_RINCON65031_'
             # Radio stations need to have at least a title to play
-            meta = meta_template.format(title=title, service=tunein_service)
+            meta = meta_template.format(
+                title=escape(title),
+                service=tunein_service)
 
         # change uri prefix to force radio style display and commands
         if force_radio:
@@ -813,9 +830,7 @@ class SoCo(_SocoSingletonBase):
 
         True if on, False if off, None if not supported.
         """
-        if not self.speaker_info:
-            self.get_speaker_info()
-        if 'PLAYBAR' not in self.speaker_info['model_name']:
+        if not self.is_soundbar:
             return None
 
         response = self.renderingControl.GetEQ([
@@ -833,9 +848,7 @@ class SoCo(_SocoSingletonBase):
         :raises NotSupportedException: If the device does not support
         night mode.
         """
-        if not self.speaker_info:
-            self.get_speaker_info()
-        if 'PLAYBAR' not in self.speaker_info['model_name']:
+        if not self.is_soundbar:
             message = 'This device does not support night mode'
             raise NotSupportedException(message)
 
@@ -851,9 +864,7 @@ class SoCo(_SocoSingletonBase):
 
         True if on, False if off, None if not supported.
         """
-        if not self.speaker_info:
-            self.get_speaker_info()
-        if 'PLAYBAR' not in self.speaker_info['model_name']:
+        if not self.is_soundbar:
             return None
 
         response = self.renderingControl.GetEQ([
@@ -871,9 +882,7 @@ class SoCo(_SocoSingletonBase):
         :raises NotSupportedException: If the device does not support
         dialog mode.
         """
-        if not self.speaker_info:
-            self.get_speaker_info()
-        if 'PLAYBAR' not in self.speaker_info['model_name']:
+        if not self.is_soundbar:
             message = 'This device does not support dialog mode'
             raise NotSupportedException(message)
 
@@ -1215,8 +1224,6 @@ class SoCo(_SocoSingletonBase):
                 track['title'] = metadata.findtext('.//{http://purl.org/dc/'
                                                    'elements/1.1/}title')
                 if not track['title']:
-                    _LOG.warning('Could not handle track info: "%s"',
-                                 trackinfo)
                     track['title'] = trackinfo
 
         # If the speaker is playing from the line-in source, querying for track
@@ -1244,8 +1251,8 @@ class SoCo(_SocoSingletonBase):
             album_art_url = metadata.findtext(
                 './/{urn:schemas-upnp-org:metadata-1-0/upnp/}albumArtURI')
             if album_art_url is not None:
-                track['album_art'] = self._build_album_art_full_uri(
-                    album_art_url)
+                track['album_art'] = \
+                    self.music_library.build_album_art_full_uri(album_art_url)
 
         return track
 
@@ -1374,7 +1381,7 @@ class SoCo(_SocoSingletonBase):
         for item in items:
             # Check if the album art URI should be fully qualified
             if full_album_art_uri:
-                self._update_album_art_to_full_uri(item)
+                self.music_library._update_album_art_to_full_uri(item)
             queue.append(item)
 
         # pylint: disable=star-args
@@ -1562,7 +1569,7 @@ class SoCo(_SocoSingletonBase):
             max_items (int): The total number of results to return.
 
         """
-        if favorite_type != RADIO_SHOWS and favorite_type != RADIO_STATIONS:
+        if favorite_type not in (RADIO_SHOWS, RADIO_STATIONS):
             favorite_type = SONOS_FAVORITES
 
         response = self.contentDirectory.Browse([
@@ -1602,16 +1609,6 @@ class SoCo(_SocoSingletonBase):
         result['favorites'] = favorites
 
         return result
-
-    def _update_album_art_to_full_uri(self, item):
-        """Update an item's Album Art URI to be an absolute URI.
-
-        Args:
-            item: The item to update the URI for
-        """
-        if getattr(item, 'album_art_uri', False):
-            item.album_art_uri = self._build_album_art_full_uri(
-                item.album_art_uri)
 
     def create_sonos_playlist(self, title):
         """Create a new empty Sonos playlist.
@@ -1709,14 +1706,6 @@ class SoCo(_SocoSingletonBase):
             # this index therefore probably amounts to adding it "at the end"
             ('AddAtIndex', 4294967295)
         ])
-
-    def get_item_album_art_uri(self, item):
-        """Get an item's Album Art absolute URI."""
-
-        if getattr(item, 'album_art_uri', False):
-            return self._build_album_art_full_uri(item.album_art_uri)
-        else:
-            return None
 
     @only_on_master
     def set_sleep_timer(self, sleep_time_seconds):
@@ -1872,7 +1861,7 @@ class SoCo(_SocoSingletonBase):
         # track_list = ','.join(track_list)
         # position_list = ','.join(position_list)
         if update_id == 0:  # retrieve the update id for the object
-            response, _ = self._music_lib_search(object_id, 0, 1)
+            response, _ = self.music_library._music_lib_search(object_id, 0, 1)
             update_id = response['UpdateID']
         change = 0
 
@@ -2027,6 +2016,7 @@ SONOS_FAVORITES = 2
 NS = {'dc': '{http://purl.org/dc/elements/1.1/}',
       'upnp': '{urn:schemas-upnp-org:metadata-1-0/upnp/}',
       '': '{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}'}
+
 # Valid play modes and their meanings as (shuffle, repeat) tuples
 PLAY_MODES = {
     'NORMAL': (False, False),
@@ -2038,6 +2028,9 @@ PLAY_MODES = {
 }
 # Inverse mapping of PLAY_MODES
 PLAY_MODE_BY_MEANING = {meaning: mode for mode, meaning in PLAY_MODES.items()}
+
+# soundbar product names
+SOUNDBARS = ('playbase', 'playbar', 'beam')
 
 if config.SOCO_CLASS is None:
     config.SOCO_CLASS = SoCo
