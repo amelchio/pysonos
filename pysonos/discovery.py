@@ -10,6 +10,7 @@ import select
 from textwrap import dedent
 import time
 import struct
+import ifaddr
 
 from . import config
 from .utils import really_utf8
@@ -37,26 +38,10 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
             quad) representation of the network interface address to use as
             the source of the datagrams (i.e. it is a value for
             `socket.IP_MULTICAST_IF <socket>`). If `None` or not specified,
-            the system default interface for UDP multicast messages will be
-            used. This is probably what you want to happen. Defaults to
-            `None`.
+            all system interfaces will be tried. Defaults to `None`.
     Returns:
         set: a set of `SoCo` instances, one for each zone found, or else
             `None`.
-
-    Note:
-        There is no easy cross-platform way to find out the addresses of the
-        local machine's network interfaces. You might try the
-        `netifaces module <https://pypi.python.org/pypi/netifaces>`_ and some
-        code like this:
-
-            >>> from netifaces import interfaces, AF_INET, ifaddresses
-            >>> data = [ifaddresses(i) for i in interfaces()]
-            >>> [d[AF_INET][0]['addr'] for d in data if d.get(AF_INET)]
-            ['127.0.0.1', '192.168.1.20']
-
-            This should provide you with a list of values to try for
-            interface_addr if you are having trouble finding your Sonos devices
 
     """
 
@@ -99,18 +84,16 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         _sockets.append(create_socket(interface_addr))
         _LOG.info("Sending discovery packets on default interface")
     else:
-        # Find the local network address using a couple of different methods.
+        # Find the local network addresses using ifaddr.
+        addresses = [
+            ip.ip
+            for adapter in ifaddr.get_adapters()
+            for ip in adapter.ips
+            if ip.is_IPv4
+        ]
+
         # Create a socket for each unique address found, and one for the
         # default multicast address
-        addresses = set()
-        try:
-            addresses.add(socket.gethostbyname(socket.gethostname()))
-        except socket.error:
-            pass
-        try:
-            addresses.add(socket.gethostbyname(socket.getfqdn()))
-        except socket.error:
-            pass
         for address in addresses:
             try:
                 _sockets.append(create_socket(address))
