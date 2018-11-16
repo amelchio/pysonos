@@ -603,7 +603,7 @@ class Subscription(object):
             'UNSUBSCRIBE',
             self.service.base_url + self.service.event_subscription_url,
             headers=headers)
-        response.raise_for_status()
+
         self.is_subscribed = False
         self._timestamp = None
         log.info(
@@ -618,6 +618,11 @@ class Subscription(object):
             except KeyError:
                 pass
         self._has_been_unsubscribed = True
+
+        # Ignore "412 Client Error: Precondition Failed for url:"
+        # from rebooted speakers.
+        if response.status_code != 412:
+            response.raise_for_status()
 
     @property
     def time_left(self):
