@@ -599,10 +599,15 @@ class Subscription(object):
         headers = {
             'SID': self.sid
         }
-        response = requests.request(
-            'UNSUBSCRIBE',
-            self.service.base_url + self.service.event_subscription_url,
-            headers=headers)
+        response = None
+        try:
+            response = requests.request(
+                'UNSUBSCRIBE',
+                self.service.base_url + self.service.event_subscription_url,
+                headers=headers,
+                timeout=3)
+        except requests.exceptions.RequestException:
+            pass
 
         self.is_subscribed = False
         self._timestamp = None
@@ -621,7 +626,7 @@ class Subscription(object):
 
         # Ignore "412 Client Error: Precondition Failed for url:"
         # from rebooted speakers.
-        if response.status_code != 412:
+        if response and response.status_code != 412:
             response.raise_for_status()
 
     @property
