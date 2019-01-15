@@ -606,7 +606,6 @@ class Service(object):
             without appropriate locks. Treat all parameters passed to this
             method as read only.
         """
-        pass
 
     @property
     def actions(self):
