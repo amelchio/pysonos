@@ -73,7 +73,7 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
     MCAST_GRP = "239.255.255.250"
     MCAST_PORT = 1900
 
-    _sockets = []
+    _sockets = {}
     # Use the specified interface, if any
     if interface_addr is not None:
         try:
@@ -81,7 +81,7 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         except socket.error:
             raise ValueError("{0} is not a valid IP address string".format(
                 interface_addr))
-        _sockets.append(create_socket(interface_addr))
+        _sockets[interface_addr] = create_socket(interface_addr)
         _LOG.info("Sending discovery packets on default interface")
     else:
         # Find the local network addresses using ifaddr.
@@ -90,45 +90,37 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
             for adapter in ifaddr.get_adapters()
             for ip in adapter.ips
             if ip.is_IPv4
+            if ip.ip != "127.0.0.1"
         ]
 
         # Create a socket for each unique address found, and one for the
         # default multicast address
         for address in addresses:
             try:
-                _sockets.append(create_socket(address))
+                _sockets[address] = create_socket(address)
             except socket.error as e:
                 _LOG.warning("Can't make a discovery socket for %s: %s: %s",
                              address, e.__class__.__name__, e)
-        # Add a socket using the system default address
-        _sockets.append(create_socket())
-        # Used to be logged as:
-        # list(s.getsockname()[0] for s in _sockets)
-        # but getsockname fails on Windows with unconnected unbound sockets
-        # https://bugs.python.org/issue1049
-        _LOG.info("Sending discovery packets on %s", _sockets)
 
-    for _ in range(0, 3):
-        # Send a few times to each socket. UDP is unreliable
-        for _sock in _sockets:
-            _sock.sendto(really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
-
+    # Note: this is sensitive to clock adjustments. AFAIK there
+    # is no monotonic timer available before Python 3.3.
     t0 = time.time()
     while True:
-        # Check if the timeout is exceeded. We could do this check just
-        # before the currently only continue statement of this loop,
-        # but I feel it is safer to do it here, so that we do not forget
-        # to do it if/when another continue statement is added later.
-        # Note: this is sensitive to clock adjustments. AFAIK there
-        # is no monotonic timer available before Python 3.3.
-        t1 = time.time()
-        if t1 - t0 > timeout:
+        time_left = timeout - (time.time() - t0)
+        if time_left < 0:
             return None
 
-        # The timeout of the select call is set to be no greater than
-        # 100ms, so as not to exceed (too much) the required timeout
-        # in case the loop is executed more than once.
-        response, _, _ = select.select(_sockets, [], [], min(timeout, 0.1))
+        # Send each second, UDP is unreliable
+        for _addr, _sock in _sockets.items():
+            try:
+                _LOG.info("Sending discovery packet on %s", _addr)
+                _sock.sendto(
+                    really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
+            except OSError:
+                _LOG.info("Discovery failed on %s", _addr)
+
+        response, _, _ = select.select(
+            list(_sockets.values()), [], [], min(1, time_left))
 
         # Only Zone Players should respond, given the value of ST in the
         # PLAYER_SEARCH message. However, to prevent misbehaved devices

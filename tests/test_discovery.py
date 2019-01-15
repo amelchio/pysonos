@@ -54,12 +54,11 @@ class TestDiscover:
         # set timeout
         TIMEOUT = 2
         discover(timeout=TIMEOUT)
-        # 9 packets in total should be sent (3 to default, 3 to
-        # 192.168.1.15 and 3 to 192.168.1.16)
-        assert sock.sendto.call_count == 9
+        # One packet to 192.168.1.15 and one to 192.168.1.16
+        assert sock.sendto.call_count == 2
         # select called with the relevant timeout
         select.select.assert_called_with(
-            [sock, sock, sock], [], [], min(TIMEOUT, 0.1))
+            [sock, sock], [], [], min(TIMEOUT, 1))
         # SoCo should be created with the IP address received
         config.SOCO_CLASS.assert_called_with(IP_ADDR)
 
