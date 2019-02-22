@@ -56,6 +56,7 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         # UPnP v1.0 requires a TTL of 4
         _sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL,
                          struct.pack("B", 4))
+        _sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         if interface_addr is not None:
             _sock.setsockopt(
                 socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
@@ -70,6 +71,7 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         MX: 1
         ST: urn:schemas-upnp-org:device:ZonePlayer:1
         """).encode('utf-8')
+    BCAST_ADDR = "255.255.255.255"
     MCAST_GRP = "239.255.255.250"
     MCAST_PORT = 1900
 
@@ -113,9 +115,11 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         # Send each second, UDP is unreliable
         for _addr, _sock in _sockets.items():
             try:
-                _LOG.info("Sending discovery packet on %s", _addr)
+                _LOG.info("Sending discovery packets on %s", _addr)
                 _sock.sendto(
                     really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
+                _sock.sendto(
+                    really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
             except OSError:
                 _LOG.info("Discovery failed on %s", _addr)
 
