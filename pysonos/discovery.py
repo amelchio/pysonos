@@ -20,7 +20,10 @@ _LOG = logging.getLogger(__name__)
 # pylint: disable=too-many-locals, too-many-branches
 
 
-def discover(timeout=5, include_invisible=False, interface_addr=None):
+def discover(timeout=5,
+             include_invisible=False,
+             interface_addr=None,
+             all_households=False):
     """ Discover Sonos zones on the local network.
 
     Return a set of `SoCo` instances for each zone found.
@@ -39,6 +42,9 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
             the source of the datagrams (i.e. it is a value for
             `socket.IP_MULTICAST_IF <socket>`). If `None` or not specified,
             all system interfaces will be tried. Defaults to `None`.
+        all_households (bool, optional): wait for all replies to discover
+            multiple households. If `False` or not specified, return only
+            the first household found.
     Returns:
         set: a set of `SoCo` instances, one for each zone found, or else
             `None`.
@@ -102,13 +108,12 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
                 _LOG.warning("Can't make a discovery socket for %s: %s: %s",
                              address, e.__class__.__name__, e)
 
-    # Note: this is sensitive to clock adjustments. AFAIK there
-    # is no monotonic timer available before Python 3.3.
-    t0 = time.time()
-    while True:
-        time_left = timeout - (time.time() - t0)
+    found_zones = set()
+    deadline = time.monotonic() + timeout
+    while not found_zones:
+        time_left = deadline - time.monotonic()
         if time_left < 0:
-            return None
+            break
 
         # Send each second, UDP is unreliable
         for _addr, _sock in _sockets.items():
@@ -141,23 +146,30 @@ def discover(timeout=5, include_invisible=False, interface_addr=None):
         # X-RINCON-BOOTSEQ: 3
         # X-RINCON-HOUSEHOLD: Sonos_7O********************R7eU
 
-        if response:
+        # Wait for additional responses for 1 second after the first
+        period_end = time.monotonic() + 1
+        while response:
             for _sock in response:
                 data, addr = _sock.recvfrom(1024)
                 _LOG.debug(
                     'Received discovery response from %s: "%s"', addr, data
                 )
                 if b"Sonos" in data:
-                    # Now we have an IP, we can build a SoCo instance and query
-                    # that player for the topology to find the other players.
-                    # It is much more efficient to rely upon the Zone
-                    # Player's ability to find the others, than to wait for
-                    # query responses from them ourselves.
+                    # pylint: disable=not-callable
                     zone = config.SOCO_CLASS(addr[0])
                     if include_invisible:
-                        return zone.all_zones
+                        found_zones.update(zone.all_zones)
                     else:
-                        return zone.visible_zones
+                        found_zones.update(zone.visible_zones)
+
+            if found_zones and not all_households:
+                break
+
+            period_left = period_end - time.monotonic()
+            response, _, _ = select.select(
+                list(_sockets.values()), [], [], max(0, period_left))
+
+    return found_zones or None
 
 
 def any_soco():
@@ -198,7 +210,8 @@ def by_name(name):
         :class:`~.SoCo`: The first device encountered among all zone with the
             given player name. If none are found `None` is returned.
     """
-    for device in discover():
+    devices = discover(all_households=True)
+    for device in (devices or []):
         if device.player_name == name:
             return device
     return None

@@ -33,6 +33,11 @@ class MockAdapter:
     def ips(self):
         return self._ips
 
+class ZoneMock:
+    def __init__(self):
+        self.all_zones = { 'ALL' }
+        self.visible_zones = { 'VISIBLE' }
+
 class TestDiscover:
     def test_discover(self, monkeypatch):
         # Create a fake socket, whose data is always a certain string
@@ -45,11 +50,15 @@ class TestDiscover:
             Mock(side_effect=lambda: [
                 MockAdapter(['192.168.1.15']),
                 MockAdapter(['192.168.1.16'])]))
+        # Fast-forward through timeouts with all_households=True
+        monkeypatch.setattr('time.monotonic',
+            Mock(side_effect=[x * 0.4 for x in range(0, 100)]))
         # prevent creation of soco instances
-        monkeypatch.setattr('pysonos.config.SOCO_CLASS', Mock())
+        monkeypatch.setattr('pysonos.config.SOCO_CLASS',
+            Mock(return_value=ZoneMock()))
         # Fake return value for select
         monkeypatch.setattr(
-            'select.select', Mock(return_value = ([sock], 1, 1)))
+            'select.select', Mock(return_value = ([sock], [], [])))
 
         # set timeout
         TIMEOUT = 2
@@ -67,15 +76,13 @@ class TestDiscover:
         # Reset interfaces to always return the same values
         monkeypatch.setattr('ifaddr.get_adapters',
             Mock(side_effect=lambda: [MockAdapter('192.168.1.19')]))
-        config.SOCO_CLASS.return_value = Mock(
-            all_zones='ALL', visible_zones='VISIBLE')
-        assert discover(include_invisible=True) == 'ALL'
-        assert discover(include_invisible=False) == 'VISIBLE'
+        assert discover(include_invisible=True) == { 'ALL' }
+        assert discover(include_invisible=False) == { 'VISIBLE' }
 
         # if select does not return within timeout SoCo should not be called
         # at all
         # simulate no data being returned within timeout
-        select.select.return_value = (0, 1, 1)
+        select.select.return_value = ([], [], [])
         discover(timeout=1)
         # Check no SoCo instance created
         config.SOCO_CLASS.assert_not_called
@@ -98,9 +105,10 @@ def test_by_name():
         # Test not found
         device = by_name("Living Room")
         assert device is None
-        discover_.assert_called_once_with()
+        discover_.assert_called_once_with(all_households=True)
 
         # Test found
+        discover_.reset_mock()
         device = by_name("Kitchen")
         assert device is mock_to_be_found
-        discover_.assert_has_calls([call(), call()])
+        discover_.assert_has_calls([call(all_households=True)])
