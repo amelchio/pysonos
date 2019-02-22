@@ -54,8 +54,8 @@ class TestDiscover:
         # set timeout
         TIMEOUT = 2
         discover(timeout=TIMEOUT)
-        # One packet to 192.168.1.15 and one to 192.168.1.16
-        assert sock.sendto.call_count == 2
+        # Two packets for 192.168.1.15 and two for 192.168.1.16
+        assert sock.sendto.call_count == 4
         # select called with the relevant timeout
         select.select.assert_called_with(
             [sock, sock], [], [], min(TIMEOUT, 1))
