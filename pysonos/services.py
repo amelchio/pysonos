@@ -672,11 +672,13 @@ class Service(object):
                 name = state.findtext('{}name'.format(ns))
                 datatype = state.findtext('{}dataType'.format(ns))
                 default = state.findtext('{}defaultValue'.format(ns))
-                value_list_elt = state.find('{}allowedValueList'.format(ns))\
-                    or ()
+                value_list_elt = state.find('{}allowedValueList'.format(ns))
+                if value_list_elt is None:
+                    value_list_elt = ()
                 value_list = [item.text for item in value_list_elt] or None
-                value_range_elt = state.find('{}allowedValueRange'.format(ns))\
-                    or ()
+                value_range_elt = state.find('{}allowedValueRange'.format(ns))
+                if value_range_elt is None:
+                    value_range_elt = ()
                 value_range = [item.text for item in value_range_elt] or None
                 vartypes[name] = Vartype(datatype, default, value_list,
                                          value_range)
