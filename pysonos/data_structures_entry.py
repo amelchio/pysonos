@@ -49,9 +49,12 @@ def from_didl_string(string):
                 cls = _DIDL_CLASS_TO_CLASS[item_class]
             except KeyError:
                 raise DIDLMetadataError("Unknown UPnP class: %s" % item_class)
-            item = cls.from_element(elt)
-            item = attempt_datastructure_upgrade(item)
-            items.append(item)
+            try:
+                item = cls.from_element(elt)
+                item = attempt_datastructure_upgrade(item)
+                items.append(item)
+            except DIDLMetadataError as ex:
+                _LOG.info("Ignored '%s' on %s", ex, XML.tostring(elt))
         else:
             # <desc> elements are allowed as an immediate child of <DIDL-Lite>
             # according to the spec, but I have not seen one there in Sonos, so

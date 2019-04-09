@@ -32,7 +32,6 @@ helpful.
 from __future__ import unicode_literals
 
 import sys
-import logging
 import textwrap
 import warnings
 
@@ -42,8 +41,6 @@ from .utils import really_unicode
 from .xml import (
     XML, ns_tag
 )
-
-log = logging.getLogger(__name__)  # pylint: disable=C0103
 
 # Due to cyclic import problems, we only import from_didl_string at runtime.
 # from data_structures_entry import from_didl_string
@@ -495,11 +492,8 @@ class DidlObject(with_metaclass(DidlMetaClass, object)):
         # Deal with any resource elements
         resources = []
         for res_elt in element.findall(ns_tag('', 'res')):
-            try:
-                resource = DidlResource.from_element(res_elt)
-                resources.append(resource)
-            except DIDLMetadataError as ex:
-                log.info("Ignored '%s' on '%s'", ex, XML.tostring(res_elt))
+            resources.append(
+                DidlResource.from_element(res_elt))
 
         # and the desc element (There is only one in Sonos)
         desc = element.findtext(ns_tag('', 'desc'))
