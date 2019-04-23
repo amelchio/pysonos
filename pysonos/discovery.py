@@ -5,6 +5,7 @@ network."""
 from __future__ import unicode_literals
 
 import logging
+import threading
 import socket
 import select
 from textwrap import dedent
@@ -20,36 +21,27 @@ _LOG = logging.getLogger(__name__)
 # pylint: disable=too-many-locals, too-many-branches
 
 
-def discover(timeout=5,
-             include_invisible=False,
-             interface_addr=None,
-             all_households=False):
-    """ Discover Sonos zones on the local network.
+class StoppableThread(threading.Thread):
+    """ Thread class with a stop() method. """
 
-    Return a set of `SoCo` instances for each zone found.
-    Include invisible zones (bridges and slave zones in stereo pairs if
-    ``include_invisible`` is `True`. Will block for up to ``timeout`` seconds,
-     after which return `None` if no zones found.
+    def __init__(self, target, args):
+        super().__init__(target=target, args=args)
+        self._stop_event = threading.Event()
 
-    Args:
-        timeout (int, optional): block for this many seconds, at most.
-            Defaults to 5.
-        include_invisible (bool, optional): include invisible zones in the
-            return set. Defaults to `False`.
-        interface_addr (str or None): Discovery operates by sending UDP
-            multicast datagrams. ``interface_addr`` is a string (dotted
-            quad) representation of the network interface address to use as
-            the source of the datagrams (i.e. it is a value for
-            `socket.IP_MULTICAST_IF <socket>`). If `None` or not specified,
-            all system interfaces will be tried. Defaults to `None`.
-        all_households (bool, optional): wait for all replies to discover
-            multiple households. If `False` or not specified, return only
-            the first household found.
-    Returns:
-        set: a set of `SoCo` instances, one for each zone found, or else
-            `None`.
+    def stop(self):
+        """Ask the thread to stop."""
+        self._stop_event.set()
 
-    """
+    def stopped(self):
+        """Returns True if stop() has been called."""
+        return self._stop_event.is_set()
+
+
+def _discover_thread(callback,
+                     timeout,
+                     include_invisible,
+                     interface_addr):
+    """ Discover Sonos zones on the local network. """
 
     def create_socket(interface_addr=None):
         """ A helper function for creating a socket for discover purposes.
@@ -112,21 +104,23 @@ def discover(timeout=5,
 
     found_zones = set()
     deadline = time.monotonic() + timeout
-    while not found_zones:
+    last_response = None
+    while not threading.current_thread().stopped():
         time_left = deadline - time.monotonic()
         if time_left < 0:
             break
 
-        # Send each second, UDP is unreliable
-        for _addr, _sock in _sockets.items():
-            try:
-                _LOG.info("Sending discovery packets on %s", _addr)
-                _sock.sendto(
-                    really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
-                _sock.sendto(
-                    really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
-            except OSError:
-                _LOG.info("Discovery failed on %s", _addr)
+        # Repeated sending, UDP is unreliable
+        if last_response is None or last_response < time.monotonic() - 1:
+            for _addr, _sock in _sockets.items():
+                try:
+                    _LOG.info("Sending discovery packets on %s", _addr)
+                    _sock.sendto(
+                        really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
+                    _sock.sendto(
+                        really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
+                except OSError:
+                    _LOG.info("Discovery failed on %s", _addr)
 
         response, _, _ = select.select(
             list(_sockets.values()), [], [], min(1, time_left))
@@ -150,28 +144,89 @@ def discover(timeout=5,
         # X-RINCON-BOOTSEQ: 3
         # X-RINCON-HOUSEHOLD: Sonos_7O********************R7eU
 
-        # Wait for additional responses for 1 second after the first
-        period_end = time.monotonic() + 1
-        while response:
-            for _sock in response:
-                data, addr = _sock.recvfrom(1024)
-                _LOG.debug(
-                    'Received discovery response from %s: "%s"', addr, data
-                )
-                if b"Sonos" in data:
-                    # pylint: disable=not-callable
-                    zone = config.SOCO_CLASS(addr[0])
-                    if include_invisible:
-                        found_zones.update(zone.all_zones)
-                    else:
-                        found_zones.update(zone.visible_zones)
+        for _sock in response:
+            last_response = time.monotonic()
+            data, addr = _sock.recvfrom(1024)
+            _LOG.debug(
+                'Received discovery response from %s: "%s"', addr, data
+            )
+            if b"Sonos" in data:
+                # pylint: disable=not-callable
+                zone = config.SOCO_CLASS(addr[0])
+                if zone not in found_zones:
+                    if zone.is_visible or include_invisible:
+                        found_zones.add(zone)
+                        callback(zone)
 
-            if found_zones and not all_households:
-                break
 
-            period_left = period_end - time.monotonic()
-            response, _, _ = select.select(
-                list(_sockets.values()), [], [], max(0, period_left))
+def discover_thread(callback,
+                    timeout=5,
+                    include_invisible=False,
+                    interface_addr=None):
+    """ Return a started thread with a discovery callback. """
+    thread = StoppableThread(
+        target=_discover_thread,
+        args=(callback, timeout, include_invisible, interface_addr))
+    thread.start()
+    return thread
+
+
+def discover(timeout=5,
+             include_invisible=False,
+             interface_addr=None,
+             all_households=False):
+    """ Discover Sonos zones on the local network.
+
+    Return a set of `SoCo` instances for each zone found.
+    Include invisible zones (bridges and slave zones in stereo pairs if
+    ``include_invisible`` is `True`. Will block for up to ``timeout`` seconds,
+     after which return `None` if no zones found.
+
+    Args:
+        timeout (int, optional): block for this many seconds, at most.
+            Defaults to 5.
+        include_invisible (bool, optional): include invisible zones in the
+            return set. Defaults to `False`.
+        interface_addr (str or None): Discovery operates by sending UDP
+            multicast datagrams. ``interface_addr`` is a string (dotted
+            quad) representation of the network interface address to use as
+            the source of the datagrams (i.e. it is a value for
+            `socket.IP_MULTICAST_IF <socket>`). If `None` or not specified,
+            all system interfaces will be tried. Defaults to `None`.
+        all_households (bool, optional): wait for all replies to discover
+            multiple households. If `False` or not specified, return only
+            the first household found.
+    Returns:
+        set: a set of `SoCo` instances, one for each zone found, or else
+            `None`.
+
+    """
+
+    found_zones = set()
+    first_response = None
+
+    def callback(zone):
+        nonlocal first_response
+
+        if first_response is None:
+            first_response = time.monotonic()
+
+        if include_invisible:
+            found_zones.update(zone.all_zones)
+        else:
+            found_zones.update(zone.visible_zones)
+
+        if not all_households:
+            thread.stop()
+
+    thread = discover_thread(
+        callback, timeout, include_invisible, interface_addr)
+    while thread.is_alive() and not thread.stopped():
+        if first_response is None:
+            thread.join(timeout=1)
+        else:
+            thread.join(timeout=first_response + 1 - time.monotonic())
+            thread.stop()
 
     return found_zones or None
 

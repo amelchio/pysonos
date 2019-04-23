@@ -12,7 +12,7 @@
 import logging
 
 from .core import SoCo
-from .discovery import discover
+from .discovery import discover, discover_thread
 from .exceptions import SoCoException, UnknownSoCoException
 
 # Will be parsed by setup.py to determine package metadata
