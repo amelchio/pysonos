@@ -38,6 +38,10 @@ class ZoneMock:
         self.all_zones = { 'ALL' }
         self.visible_zones = { 'VISIBLE' }
 
+    @property
+    def is_visible(self):
+        return True
+
 class TestDiscover:
     def test_discover(self, monkeypatch):
         # Create a fake socket, whose data is always a certain string
