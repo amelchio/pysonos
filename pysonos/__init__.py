@@ -27,6 +27,7 @@ __license__ = 'MIT License'
 # but if you do, here is what you get:
 __all__ = [
     'discover',
+    'discover_thread',
     'SoCo',
     'SoCoException',
     'UnknownSoCoException',
