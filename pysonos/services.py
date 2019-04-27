@@ -45,7 +45,7 @@ import requests
 from .cache import Cache
 from .events import Subscription
 from .exceptions import (
-    SoCoUPnPException, UnknownSoCoException
+    SoCoException, SoCoUPnPException, UnknownSoCoException
 )
 from .utils import prettify
 from .xml import XML, illegal_xml_re
@@ -464,11 +464,16 @@ class Service(object):
         log.info("Sending %s %s to %s", action, args, self.soco.ip_address)
         log.debug("Sending %s, %s", headers, prettify(body))
         # Convert the body to bytes, and send it.
-        response = requests.post(
-            self.base_url + self.control_url,
-            headers=headers,
-            data=body.encode('utf-8')
-        )
+        try:
+            response = requests.post(
+                self.base_url + self.control_url,
+                headers=headers,
+                data=body.encode('utf-8'),
+                timeout=3,
+            )
+        except requests.exceptions.RequestException:
+            raise SoCoException('Connection error')
+
         log.debug("Received %s, %s", response.headers, response.text)
         status = response.status_code
         log.info(
