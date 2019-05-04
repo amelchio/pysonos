@@ -15,9 +15,5 @@ install:
 script:
   - flake8 pysonos
   - pylint pysonos
-  - py.test --cov-config .coveragerc --cov pysonos .
-
-after_script:
-  - coveralls
 
 sudo: false
