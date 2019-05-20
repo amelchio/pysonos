@@ -23,8 +23,12 @@ import time
 import pytest
 
 import pysonos as pysonos_module
-from pysonos.data_structures import DidlMusicTrack
-from pysonos.data_structures import DidlPlaylistContainer
+from pysonos.data_structures import (
+    DidlMusicTrack,
+    DidlPlaylistContainer,
+    SearchResult,
+)
+from pysonos.music_library import MusicLibrary
 from pysonos.exceptions import SoCoUPnPException
 
 # Mark all tests in this module with the pytest custom "integration" marker so
@@ -36,11 +40,11 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.yield_fixture(scope='session')
-def soco():
+def soco(request):
     """Set up and tear down the soco fixture used by all tests."""
     # Get the ip address from the command line, and create the soco object
     # Only one is used per test session, hence the decorator
-    ip = pytest.config.option.IP
+    ip = request.config.option.IP
     if ip is None:
         pytest.fail("No ip address specified. Use the --ip option.")
     soco = pysonos_module.SoCo(ip)
@@ -480,6 +484,7 @@ class TestReorderSonosPlaylist(object):
     existing_playlists = None
     playlist_name = 'zSocoTestPlayList42'
     test_playlist = None
+    queue_length = None
 
     @pytest.yield_fixture(autouse=True, scope="class")
     def restore_sonos_playlists(self, soco):
@@ -495,27 +500,22 @@ class TestReorderSonosPlaylist(object):
             msg = 'You must have 3 or more items in your queue for testing.'
             pytest.fail(msg)
         playlist = soco.create_sonos_playlist_from_queue(self.playlist_name)
-        self.test_playlist = playlist
+        self.__class__.queue_length = soco.queue_size
+        self.__class__.test_playlist = playlist
         yield
 
-        # soco.remove_sonos_playlist(object_id=self.test_playlist.item_id)
-        soco.contentDirectory.DestroyObject([('ObjectID',
-                                              self.test_playlist.item_id)])
+        soco.contentDirectory.DestroyObject(
+            [('ObjectID', self.test_playlist.item_id)]
+        )
 
     def _reset_spl_contents(self, soco):
         """Ensure test playlist matches queue for each test."""
-        test_playlist = soco.get_sonos_playlist_by_attr('title',
-                                                        self.playlist_name)
-        response = soco.clear_sonos_playlist(test_playlist)
-        if response['length']:
-            msg = 'Failed to empty playlist. Unexpected result.'
-            pytest.fail(msg)
-        que = soco.get_queue()
-        num_tracks = 0
-        for track in que:
-            soco.add_item_to_sonos_playlist(track, test_playlist)
-            num_tracks += 1
-        return test_playlist, num_tracks
+        soco.contentDirectory.DestroyObject(
+            [('ObjectID', self.test_playlist.item_id)]
+        )
+        playlist = soco.create_sonos_playlist_from_queue(self.playlist_name)
+        self.__class__.test_playlist = playlist
+        return playlist, self.__class__.queue_length
 
     def test_reverse_track_order(self, soco):
         """Test reversing the tracks in the Sonos playlist."""
@@ -551,7 +551,10 @@ class TestReorderSonosPlaylist(object):
         que = soco.get_queue()
         assert spl[0].resources[0].uri == que[1].resources[0].uri
         assert spl[1].resources[0].uri == que[0].resources[0].uri
-        for s_item, q_item in zip(spl[2:], que[2:]):
+        # FIXME remove the list on spl and que before slicing, when
+        # the deprecated __getitem__ on ListOfMusicInfoItems is
+        # removed
+        for s_item, q_item in zip(list(spl)[2:], list(que)[2:]):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
     def test_remove_first_track(self, soco):
@@ -568,15 +571,17 @@ class TestReorderSonosPlaylist(object):
         assert response['length'] == num_tracks - 1
         assert response['update_id'] != 0
         spl = soco.music_library.browse(ml_item=test_playlist)
-        que = soco.get_queue()[1:]
+        # FIXME remove the list on queue() call, when the deprecated
+        # __getitem__ on ListOfMusicInfoItems is removed
+        que = list(soco.get_queue())[1:]
         for s_item, q_item in zip(spl, que):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
     def test_remove_first_track_full(self, soco):
         """Test removing first track from Sonos Playlist."""
         test_playlist, num_tracks = self._reset_spl_contents(soco)
-        tracks = [0] + range(num_tracks - 1)        # [0, 0, 1, ..., n-1]
-        new_pos = [None, ] + range(num_tracks - 1)  # [None, 0, ..., n-1]
+        tracks = [0] + list(range(num_tracks - 1))        # [0, 0, 1, ..., n-1]
+        new_pos = [None, ] + list(range(num_tracks - 1))  # [None, 0, ..., n-1]
         args = {'sonos_playlist': test_playlist.item_id,
                 'tracks': tracks,
                 'new_pos': new_pos}
@@ -585,7 +590,9 @@ class TestReorderSonosPlaylist(object):
         assert response['length'] == num_tracks - 1
         assert response['update_id'] != 0
         spl = soco.music_library.browse(ml_item=test_playlist)
-        que = soco.get_queue()[1:]
+        # FIXME remove the list on queue() call, when the deprecated
+        # __getitem__ on ListOfMusicInfoItems is removed
+        que = list(soco.get_queue())[1:]
         for s_item, q_item in zip(spl, que):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
@@ -593,7 +600,7 @@ class TestReorderSonosPlaylist(object):
         """Test removing last track from Sonos Playlist."""
         test_playlist, num_tracks = self._reset_spl_contents(soco)
         tracks = range(num_tracks)
-        new_pos = range(num_tracks - 1) + [None, ]
+        new_pos = list(range(num_tracks - 1)) + [None, ]
         args = {'sonos_playlist': test_playlist.item_id,
                 'tracks': tracks,
                 'new_pos': new_pos}
@@ -602,7 +609,9 @@ class TestReorderSonosPlaylist(object):
         assert response['length'] == num_tracks - 1
         assert response['update_id'] != 0
         spl = soco.music_library.browse(ml_item=test_playlist)
-        que = soco.get_queue()[:-1]
+        # FIXME remove the list on queue() call, when the deprecated
+        # __getitem__ on ListOfMusicInfoItems is removed
+        que = list(soco.get_queue())[:-1]
         for s_item, q_item in zip(spl, que):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
@@ -745,7 +754,10 @@ class TestReorderSonosPlaylist(object):
         que = soco.get_queue()
         assert spl[0].resources[0].uri == que[1].resources[0].uri
         assert spl[1].resources[0].uri == que[0].resources[0].uri
-        for s_item, q_item in zip(spl[2:], que[2:]):
+        # FIXME remove the list on spl and que before slicing, when
+        # the deprecated __getitem__ on ListOfMusicInfoItems is
+        # removed
+        for s_item, q_item in zip(list(spl)[2:], list(que)[2:]):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
     def test_move_track_int(self, soco):
@@ -764,7 +776,10 @@ class TestReorderSonosPlaylist(object):
         que = soco.get_queue()
         assert spl[0].resources[0].uri == que[1].resources[0].uri
         assert spl[1].resources[0].uri == que[0].resources[0].uri
-        for s_item, q_item in zip(spl[2:], que[2:]):
+        # FIXME remove the list on spl and que before slicing, when
+        # the deprecated __getitem__ on ListOfMusicInfoItems is
+        # removed
+        for s_item, q_item in zip(list(spl)[2:], list(que)[2:]):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
     def test_clear_sonos_playlist(self, soco):
@@ -804,7 +819,10 @@ class TestReorderSonosPlaylist(object):
         que = soco.get_queue()
         assert spl[0].resources[0].uri == que[1].resources[0].uri
         assert spl[1].resources[0].uri == que[0].resources[0].uri
-        for s_item, q_item in zip(spl[2:], que[2:]):
+        # FIXME remove the list on spl and que before slicing, when
+        # the deprecated __getitem__ on ListOfMusicInfoItems is
+        # removed
+        for s_item, q_item in zip(list(spl)[2:], list(que)[2:]):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
     def test_remove_from_sonos_playlist(self, soco):
@@ -817,7 +835,9 @@ class TestReorderSonosPlaylist(object):
         assert response['length'] == num_tracks - 1
         assert response['update_id'] != 0
         spl = soco.music_library.browse(ml_item=test_playlist)
-        que = soco.get_queue()[1:]
+        # FIXME remove the list on queue() call, when the deprecated
+        # __getitem__ on ListOfMusicInfoItems is removed
+        que = list(soco.get_queue())[1:]
         for s_item, q_item in zip(spl, que):
             assert s_item.resources[0].uri == q_item.resources[0].uri
 
@@ -825,12 +845,36 @@ class TestReorderSonosPlaylist(object):
         """Test test_get_sonos_playlist_by_attr."""
         test_playlist, _ = self._reset_spl_contents(soco)
         by_name = soco.get_sonos_playlist_by_attr('title', self.playlist_name)
-        assert test_playlist == by_name
+        assert test_playlist.item_id == by_name.item_id
         by_id = soco.get_sonos_playlist_by_attr('item_id',
                                                 test_playlist.item_id)
-        assert test_playlist == by_id
+        assert test_playlist.item_id == by_id.item_id
         with pytest.raises(AttributeError):
             soco.get_sonos_playlist_by_attr('fred', 'wilma')
 
         with pytest.raises(ValueError):
             soco.get_sonos_playlist_by_attr('item_id', 'wilma')
+
+
+class TestMusicLibrary(object):
+    """The the music library methods"""
+
+    search_types = list(MusicLibrary.SEARCH_TRANSLATION.keys())
+    specific_search_methods = (
+        "artists", "album_artists", "albums", "genres", "composers", "tracks",
+        "playlists", "sonos_favorites", "favorite_radio_stations",
+        "favorite_radio_shows",
+    )
+
+    @pytest.mark.parametrize("search_type", specific_search_methods)
+    def test_from_specific_search_methods(self, soco, search_type):
+        """Test getting favorites from the music library"""
+        search_method = getattr(soco.music_library, "get_" + search_type)
+        search_result = search_method()
+        assert isinstance(search_result, SearchResult)
+
+    @pytest.mark.parametrize("search_type", search_types)
+    def test_music_library_information(self, soco, search_type):
+        """Test getting favorites from the music library"""
+        search_result = soco.music_library.get_music_library_information(search_type)
+        assert isinstance(search_result, SearchResult)
