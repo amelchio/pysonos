@@ -979,7 +979,7 @@ class SoCo(_SocoSingletonBase):
         # and the set of all members
         self._all_zones.clear()
         self._visible_zones.clear()
-        # With some versions, the response is wrapped in ZoneGroupState
+        # The response is wrapped in ZoneGroups from Sonos 10.1
         tree = tree.find('ZoneGroups') or tree
         # Loop over each ZoneGroup Element
         for group_element in tree.findall('ZoneGroup'):
