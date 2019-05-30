@@ -160,7 +160,7 @@ def _discover_thread(callback,
 
 
 def discover_thread(callback,
-                    timeout=5,
+                    timeout=2,
                     include_invisible=False,
                     interface_addr=None):
     """ Return a started thread with a discovery callback. """
