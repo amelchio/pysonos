@@ -866,6 +866,12 @@ class DidlFavorite(DidlItem):
         self.resources = value.resources
 
 
+class DidlLineInItem(DidlItem):
+
+    """Class that represents a Sonos Line-In."""
+    item_class = 'object.item.audioItem.linein'
+
+
 ###############################################################################
 # OBJECT.CONTAINER HIERARCHY                                                  #
 ###############################################################################
