@@ -866,6 +866,12 @@ class DidlFavorite(DidlItem):
         self.resources = value.resources
 
 
+class DidlLineInItem(DidlItem):
+
+    """Class that represents a Sonos Line-In."""
+    item_class = 'object.item.audioItem.linein'
+
+
 ###############################################################################
 # OBJECT.CONTAINER HIERARCHY                                                  #
 ###############################################################################
@@ -1053,6 +1059,12 @@ class DidlPlaylistContainerFavorite(DidlPlaylistContainer):
 
     """Class that represents a Sonos favorite play list."""
     item_class = 'object.container.playlistContainer.sonos-favorite'
+
+
+class DidlPlaylistContainerTracklist(DidlPlaylistContainer):
+
+    """Class that represents a Sonos tracklist."""
+    item_class = 'object.container.playlistContainer.tracklist'
 
 
 class DidlGenre(DidlContainer):
