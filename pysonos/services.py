@@ -469,10 +469,10 @@ class Service(object):
                 self.base_url + self.control_url,
                 headers=headers,
                 data=body.encode('utf-8'),
-                timeout=3,
+                timeout=20,
             )
-        except requests.exceptions.RequestException:
-            raise SoCoException('Connection error')
+        except requests.exceptions.RequestException as ex:
+            raise SoCoException('Connection error: ' + str(ex))
 
         log.debug("Received %s, %s", response.headers, response.text)
         status = response.status_code
