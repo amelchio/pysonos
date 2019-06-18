@@ -17,5 +17,6 @@ install:
 script:
   - flake8 pysonos
   - pylint pysonos
+  - py.test pysonos .
 
 sudo: false
