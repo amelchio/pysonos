@@ -149,11 +149,11 @@ def parse_event_xml(xml_event):
                                 continue
                             value = didl[0]
                         except SoCoException as original_exception:
-                            log.warning("Event contains illegal metadata"
-                                        "for '%s'.\n"
-                                        "Error message: '%s'\n"
-                                        "The result will be a SoCoFault.",
-                                        tag, str(original_exception))
+                            log.debug("Event contains illegal metadata"
+                                      "for '%s'.\n"
+                                      "Error message: '%s'\n"
+                                      "The result will be a SoCoFault.",
+                                      tag, str(original_exception))
                             event_parse_exception = EventParseException(
                                 tag, value, original_exception
                             )
