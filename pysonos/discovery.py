@@ -38,7 +38,7 @@ class StoppableThread(threading.Thread):
 
 
 def _discover_thread(callback,
-                     timeout,
+                     interval,
                      include_invisible,
                      interface_addr):
     """ Discover Sonos zones on the local network. """
@@ -102,16 +102,9 @@ def _discover_thread(callback,
                 _LOG.warning("Can't make a discovery socket for %s: %s: %s",
                              address, e.__class__.__name__, e)
 
-    found_zones = set()
-    deadline = time.monotonic() + timeout
-    last_response = None
+    resend = time.monotonic()
     while not threading.current_thread().stopped():
-        time_left = deadline - time.monotonic()
-        if time_left < 0:
-            break
-
-        # Repeated sending, UDP is unreliable
-        if last_response is None or last_response < time.monotonic() - 1:
+        if resend < time.monotonic():
             for _addr, _sock in _sockets.items():
                 try:
                     _LOG.info("Sending discovery packets on %s", _addr)
@@ -122,8 +115,11 @@ def _discover_thread(callback,
                 except OSError:
                     _LOG.info("Discovery failed on %s", _addr)
 
+            resend = time.monotonic() + interval
+
+        wait_time = resend - time.monotonic()
         response, _, _ = select.select(
-            list(_sockets.values()), [], [], min(1, time_left))
+            list(_sockets.values()), [], [], max(0, wait_time))
 
         # Only Zone Players should respond, given the value of ST in the
         # PLAYER_SEARCH message. However, to prevent misbehaved devices
@@ -145,7 +141,6 @@ def _discover_thread(callback,
         # X-RINCON-HOUSEHOLD: Sonos_7O********************R7eU
 
         for _sock in response:
-            last_response = time.monotonic()
             data, addr = _sock.recvfrom(1024)
             _LOG.debug(
                 'Received discovery response from %s: "%s"', addr, data
@@ -153,20 +148,21 @@ def _discover_thread(callback,
             if b"Sonos" in data:
                 # pylint: disable=not-callable
                 zone = config.SOCO_CLASS(addr[0])
-                if zone not in found_zones:
-                    if zone.is_visible or include_invisible:
-                        found_zones.add(zone)
-                        callback(zone)
+                if include_invisible or zone.is_visible:
+                    callback(zone)
+
+    for _sock in _sockets.values():
+        _sock.close()
 
 
 def discover_thread(callback,
-                    timeout=2,
+                    interval=60,
                     include_invisible=False,
                     interface_addr=None):
     """ Return a started thread with a discovery callback. """
     thread = StoppableThread(
         target=_discover_thread,
-        args=(callback, timeout, include_invisible, interface_addr))
+        args=(callback, interval, include_invisible, interface_addr))
     thread.start()
     return thread
 
@@ -204,6 +200,7 @@ def discover(timeout=5,
 
     found_zones = set()
     first_response = None
+    start = time.monotonic()
 
     def callback(zone):
         nonlocal first_response
@@ -220,10 +217,12 @@ def discover(timeout=5,
             thread.stop()
 
     thread = discover_thread(
-        callback, timeout, include_invisible, interface_addr)
+        callback, 2, include_invisible, interface_addr)
     while thread.is_alive() and not thread.stopped():
         if first_response is None:
             thread.join(timeout=1)
+            if time.monotonic() > start + timeout:
+                thread.stop()
         else:
             thread.join(timeout=first_response + 1 - time.monotonic())
             thread.stop()
