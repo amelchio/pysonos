@@ -71,7 +71,7 @@ class TestDiscover:
         assert sock.sendto.call_count == 4
         # select called with the relevant timeout
         select.select.assert_called_with(
-            [sock, sock], [], [], min(TIMEOUT, 1))
+            [sock, sock], [], [], 1.6)
         # SoCo should be created with the IP address received
         config.SOCO_CLASS.assert_called_with(IP_ADDR)
 
@@ -86,6 +86,7 @@ class TestDiscover:
         # if select does not return within timeout SoCo should not be called
         # at all
         # simulate no data being returned within timeout
+        monkeypatch.setattr('threading.Thread.join', Mock())
         select.select.return_value = ([], [], [])
         discover(timeout=1)
         # Check no SoCo instance created
