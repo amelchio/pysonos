@@ -95,7 +95,7 @@ def get_class(class_key):
                 if sys.version_info[0] == 2:
                     class_name = class_name.encode('ascii')
                 CLASSES[class_key] = type(class_name, (basecls,), {})
-                _LOG.info('Class %s created', CLASSES[class_key])
+                _LOG.debug('Class %s created', CLASSES[class_key])
     return CLASSES[class_key]
 
 

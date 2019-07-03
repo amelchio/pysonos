@@ -461,7 +461,7 @@ class Service(object):
             return result
         # Cache miss, so go ahead and make a network call
         headers, body = self.build_command(action, args)
-        log.info("Sending %s %s to %s", action, args, self.soco.ip_address)
+        log.debug("Sending %s %s to %s", action, args, self.soco.ip_address)
         log.debug("Sending %s, %s", headers, prettify(body))
         # Convert the body to bytes, and send it.
         try:
@@ -476,7 +476,7 @@ class Service(object):
 
         log.debug("Received %s, %s", response.headers, response.text)
         status = response.status_code
-        log.info(
+        log.debug(
             "Received status %s from %s", status, self.soco.ip_address)
         if status == 200:
             # The response is good. Get the output params, and return them.

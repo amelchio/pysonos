@@ -82,7 +82,7 @@ def _discover_thread(callback,
             raise ValueError("{0} is not a valid IP address string".format(
                 interface_addr))
         _sockets[interface_addr] = create_socket(interface_addr)
-        _LOG.info("Sending discovery packets on default interface")
+        _LOG.debug("Sending discovery packets on default interface")
     else:
         # Find the local network addresses using ifaddr.
         addresses = [
@@ -99,21 +99,21 @@ def _discover_thread(callback,
             try:
                 _sockets[address] = create_socket(address)
             except socket.error as e:
-                _LOG.warning("Can't make a discovery socket for %s: %s: %s",
-                             address, e.__class__.__name__, e)
+                _LOG.debug("Can't make a discovery socket for %s: %s: %s",
+                           address, e.__class__.__name__, e)
 
     resend = time.monotonic()
     while not threading.current_thread().stopped():
         if resend < time.monotonic():
             for _addr, _sock in _sockets.items():
                 try:
-                    _LOG.info("Sending discovery packets on %s", _addr)
+                    _LOG.debug("Sending discovery packets on %s", _addr)
                     _sock.sendto(
                         really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
                     _sock.sendto(
                         really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
                 except OSError:
-                    _LOG.info("Discovery failed on %s", _addr)
+                    _LOG.debug("Discovery failed on %s", _addr)
 
             resend = time.monotonic() + interval
 
