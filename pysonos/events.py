@@ -254,7 +254,7 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
         # It might have been removed by another thread
         if subscription:
             service = subscription.service
-            log.info(
+            log.debug(
                 "Event %s received for %s service on thread %s at %s", seq,
                 service.service_id, threading.current_thread(), timestamp)
             log.debug("Event content: %s", content)
@@ -268,7 +268,7 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
             # Put the event on the queue
             subscription.events.put(event)
         else:
-            log.info("No service registered for %s", sid)
+            log.debug("No service registered for %s", sid)
         self.send_response(200)
         self.end_headers()
 
@@ -300,7 +300,7 @@ class EventServerThread(threading.Thread):
         `EventNotifyHandler` class.
         """
         listener = EventServer(self.address, EventNotifyHandler)
-        log.info("Event listener running on %s", listener.server_address)
+        log.debug("Event listener running on %s", listener.server_address)
         # Listen for events until told to stop
         while not self.stop_flag.is_set():
             listener.handle_request()
@@ -363,7 +363,7 @@ class EventListener(object):
                 self._listener_thread.daemon = True
                 self._listener_thread.start()
                 self.is_running = True
-                log.info("Event listener started")
+                log.debug("Event listener started")
 
     def stop(self):
         """Stop the event listener."""
@@ -380,7 +380,7 @@ class EventListener(object):
         # wait for the thread to finish
         self._listener_thread.join()
         self.is_running = False
-        log.info("Event listener stopped")
+        log.debug("Event listener stopped")
 
 
 class Subscription(object):
@@ -456,7 +456,7 @@ class Subscription(object):
                 stop_flag = self.stop_flag
                 interval = self.interval
                 while not stop_flag.wait(interval):
-                    log.info("Autorenewing subscription %s", sub.sid)
+                    log.debug("Autorenewing subscription %s", sub.sid)
                     sub.renew()
 
         # TIMEOUT is provided for in the UPnP spec, but it is not clear if
@@ -507,7 +507,7 @@ class Subscription(object):
                 self.timeout = int(timeout.lstrip('Second-'))
             self._timestamp = time.time()
             self.is_subscribed = True
-            log.info(
+            log.debug(
                 "Subscribed to %s, sid: %s",
                 service.base_url + service.event_subscription_url, self.sid)
             # Add the subscription to the master dict so it can be looked up
@@ -578,7 +578,7 @@ class Subscription(object):
             self.timeout = int(timeout.lstrip('Second-'))
         self._timestamp = time.time()
         self.is_subscribed = True
-        log.info(
+        log.debug(
             "Renewed subscription to %s, sid: %s",
             self.service.base_url + self.service.event_subscription_url,
             self.sid)
@@ -614,7 +614,7 @@ class Subscription(object):
 
         self.is_subscribed = False
         self._timestamp = None
-        log.info(
+        log.debug(
             "Unsubscribed from %s, sid: %s",
             self.service.base_url + self.service.event_subscription_url,
             self.sid)
