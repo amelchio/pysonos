@@ -116,6 +116,7 @@ def _discover_thread(callback,
                     _LOG.debug("Discovery failed on %s", _addr)
 
             resend = time.monotonic() + interval
+            seen = set()
 
         wait_time = resend - time.monotonic()
         response, _, _ = select.select(
@@ -148,8 +149,10 @@ def _discover_thread(callback,
             if b"Sonos" in data:
                 # pylint: disable=not-callable
                 zone = config.SOCO_CLASS(addr[0])
-                if include_invisible or zone.is_visible:
-                    callback(zone)
+                if zone not in seen:
+                    seen.add(zone)
+                    if include_invisible or zone.is_visible:
+                        callback(zone)
 
     for _sock in _sockets.values():
         _sock.close()
