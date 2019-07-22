@@ -1119,6 +1119,13 @@ class DidlRadioShow(DidlContainer):
     # A radio show doesn't seem to have any special attributes
 
 
+class DidlPodcast(DidlContainer):
+    """Dummy class that represents a podcast container."""
+
+    # the DIDL Lite class for this object.
+    item_class = 'object.container.podcast'
+
+
 ###############################################################################
 # SPECIAL LISTS                                                               #
 ###############################################################################
