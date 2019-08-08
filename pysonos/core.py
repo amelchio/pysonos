@@ -12,6 +12,7 @@ import re
 import socket
 from functools import wraps
 from xml.sax.saxutils import escape
+import xml.etree.ElementTree
 import warnings
 
 import requests
@@ -25,7 +26,8 @@ from .data_structures import (
 from .cache import Cache
 from .data_structures_entry import from_didl_string
 from .exceptions import (
-    SoCoSlaveException, SoCoUPnPException, NotSupportedException,
+    SoCoException, SoCoSlaveException, SoCoUPnPException,
+    NotSupportedException,
 )
 from .groups import ZoneGroup
 from .music_library import MusicLibrary
@@ -893,6 +895,13 @@ class SoCo(_SocoSingletonBase):
         ])
 
     def _parse_zone_group_state(self):
+        """Parse zone group state, catching some exceptions."""
+        try:
+            self.__parse_zone_group_state_wrapped()
+        except xml.etree.ElementTree.ParseError as ex:
+            raise SoCoException('Parse error: ' + str(ex))
+
+    def __parse_zone_group_state_wrapped(self):
         """The Zone Group State contains a lot of useful information.
 
         Retrieve and parse it, and populate the relevant properties.
