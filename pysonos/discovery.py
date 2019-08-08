@@ -161,12 +161,15 @@ def _discover_thread(callback,
 def discover_thread(callback,
                     interval=60,
                     include_invisible=False,
-                    interface_addr=None):
+                    interface_addr=None,
+                    *,
+                    start=True):
     """ Return a started thread with a discovery callback. """
     thread = StoppableThread(
         target=_discover_thread,
         args=(callback, interval, include_invisible, interface_addr))
-    thread.start()
+    if start:
+        thread.start()
     return thread
 
 
@@ -220,7 +223,8 @@ def discover(timeout=5,
             thread.stop()
 
     thread = discover_thread(
-        callback, 2, include_invisible, interface_addr)
+        callback, 2, include_invisible, interface_addr, start=False)
+    thread.start()
     while thread.is_alive() and not thread.stopped():
         if first_response is None:
             thread.join(timeout=1)
