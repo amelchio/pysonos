@@ -666,7 +666,8 @@ class Service(object):
         ns = '{urn:schemas-upnp-org:service-1-0}'
         # get the scpd body as bytes, and feed directly to elementtree
         # which likes to receive bytes
-        scpd_body = requests.get(self.base_url + self.scpd_url).content
+        scpd_body = requests.get(
+            self.base_url + self.scpd_url, timeout=10).content
         tree = XML.fromstring(scpd_body)
         # parse the state variables to get the relevant variable types
         vartypes = {}
@@ -730,7 +731,8 @@ class Service(object):
 
         # pylint: disable=invalid-name
         ns = '{urn:schemas-upnp-org:service-1-0}'
-        scpd_body = requests.get(self.base_url + self.scpd_url).text
+        scpd_body = requests.get(
+            self.base_url + self.scpd_url, timeout=10).text
         tree = XML.fromstring(scpd_body.encode('utf-8'))
         # parse the state variables to get the relevant variable types
         statevars = tree.findall('{}stateVariable'.format(ns))
