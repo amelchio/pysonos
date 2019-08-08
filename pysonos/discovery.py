@@ -142,17 +142,28 @@ def _discover_thread(callback,
         # X-RINCON-HOUSEHOLD: Sonos_7O********************R7eU
 
         for _sock in response:
-            data, addr = _sock.recvfrom(1024)
-            _LOG.debug(
-                'Received discovery response from %s: "%s"', addr, data
-            )
-            if b"Sonos" in data:
+            try:
+                data, addr = _sock.recvfrom(1024)
+                _LOG.debug(
+                    'Received discovery response from %s: "%s"', addr, data
+                )
+
+                if b"Sonos" not in data:
+                    continue
+
                 # pylint: disable=not-callable
                 zone = config.SOCO_CLASS(addr[0])
-                if zone not in seen:
-                    seen.add(zone)
-                    if include_invisible or zone.is_visible:
-                        callback(zone)
+                if zone in seen:
+                    continue
+
+                seen.add(zone)
+
+                if include_invisible or zone.is_visible:
+                    callback(zone)
+
+            # pylint: disable=broad-except
+            except Exception as ex:
+                _LOG.debug('Error handling discovery response, ex=%s', ex)
 
     for _sock in _sockets.values():
         _sock.close()

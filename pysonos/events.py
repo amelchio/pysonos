@@ -266,7 +266,12 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
             # pylint: disable=protected-access
             service._update_cache_on_event(event)
             # Put the event on the queue
-            subscription.events.put(event)
+            try:
+                subscription.events.put(event)
+            # pylint: disable=broad-except
+            except Exception as ex:
+                log.debug('Error putting event %s, ex=%s', event, ex)
+
         else:
             log.debug("No service registered for %s", sid)
         self.send_response(200)
