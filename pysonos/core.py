@@ -989,7 +989,9 @@ class SoCo(_SocoSingletonBase):
         self._all_zones.clear()
         self._visible_zones.clear()
         # The response is wrapped in ZoneGroups from Sonos 10.1
-        tree = tree.find('ZoneGroups') or tree
+        zonegroups = tree.find('ZoneGroups')
+        if zonegroups is not None:
+            tree = zonegroups
         # Loop over each ZoneGroup Element
         for group_element in tree.findall('ZoneGroup'):
             coordinator_uid = group_element.attrib['Coordinator']
