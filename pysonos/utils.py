@@ -13,6 +13,8 @@ import functools
 import re
 import warnings
 
+import xml.dom.minidom as minidom
+
 from .compat import (
     StringType, UnicodeType, quote_url
 )
@@ -98,8 +100,7 @@ def prettify(unicode_text):
         str: A pretty-printed version of the input.
 
     """
-    import xml.dom.minidom
-    reparsed = xml.dom.minidom.parseString(unicode_text.encode('utf-8'))
+    reparsed = minidom.parseString(unicode_text.encode('utf-8'))
     return reparsed.toprettyxml(indent="  ", newl="\n")
 
 
