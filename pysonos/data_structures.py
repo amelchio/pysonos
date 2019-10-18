@@ -873,22 +873,6 @@ class DidlLineInItem(DidlItem):
     item_class = 'object.item.audioItem.linein'
 
 
-class DidlRecentShow(DidlAudioItem):
-
-    """Class that represents a recent radio show/podcast."""
-
-    # the DIDL Lite class for this object.
-    item_class = 'object.item.audioItem.musicTrack.recentShow'
-    # name: (ns, tag)
-    _translation = DidlAudioItem._translation.copy()
-    _translation.update(
-        {
-            'artist': ('upnp', 'artist'),
-            'album': ('upnp', 'album'),
-        }
-    )
-
-
 ###############################################################################
 # OBJECT.CONTAINER HIERARCHY                                                  #
 ###############################################################################
