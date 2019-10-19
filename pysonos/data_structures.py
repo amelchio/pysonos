@@ -850,6 +850,7 @@ class DidlFavorite(DidlItem):
         # import happened at load time.
         global _FROM_DIDL_STRING_FUNCTION  # pylint: disable=global-statement
         if not _FROM_DIDL_STRING_FUNCTION:
+            # pylint: disable=import-outside-toplevel
             from . import data_structures_entry
             _FROM_DIDL_STRING_FUNCTION = data_structures_entry.from_didl_string
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Disable while we have Python 2.x compatability
-# pylint: disable=useless-object-inheritance
+# pylint: disable=useless-object-inheritance,no-else-continue
 
 """This module contains classes relating to Third Party music services."""
 
@@ -147,9 +147,9 @@ class Account(object):
                     # Yes, so delete it and move to the next XML account
                     del cls._all_accounts[serial_number]
                     continue
-
-                # No, so load up its details, ready to update them
-                account = cls._all_accounts.get(serial_number)
+                else:
+                    # No, so load up its details, ready to update them
+                    account = cls._all_accounts.get(serial_number)
             else:
                 # We have no existing entry for this account
                 if is_deleted:

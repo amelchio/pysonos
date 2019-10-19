@@ -42,6 +42,12 @@ class ZoneMock:
     def is_visible(self):
         return True
 
+monotime = 0
+def monotonic_time():
+    global monotime
+    monotime += 0.4
+    return monotime
+
 class TestDiscover:
     def test_discover(self, monkeypatch):
         # Create a fake socket, whose data is always a certain string
@@ -55,8 +61,7 @@ class TestDiscover:
                 MockAdapter(['192.168.1.15']),
                 MockAdapter(['192.168.1.16'])]))
         # Fast-forward through timeouts with all_households=True
-        monkeypatch.setattr('time.monotonic',
-            Mock(side_effect=[x * 0.4 for x in range(0, 100)]))
+        monkeypatch.setattr('time.monotonic', Mock(side_effect=monotonic_time))
         # prevent creation of soco instances
         monkeypatch.setattr('pysonos.config.SOCO_CLASS',
             Mock(return_value=ZoneMock()))

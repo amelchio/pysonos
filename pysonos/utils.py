@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Disable while we have Python 2.x compatability
-# pylint: disable=useless-object-inheritance
+# pylint: disable=useless-object-inheritance,import-outside-toplevel
 
 """This class contains utility functions used internally by SoCo."""
 
@@ -12,8 +12,6 @@ from __future__ import (
 import functools
 import re
 import warnings
-
-import xml.dom.minidom as minidom
 
 from .compat import (
     StringType, UnicodeType, quote_url
@@ -100,7 +98,8 @@ def prettify(unicode_text):
         str: A pretty-printed version of the input.
 
     """
-    reparsed = minidom.parseString(unicode_text.encode('utf-8'))
+    import xml.dom.minidom
+    reparsed = xml.dom.minidom.parseString(unicode_text.encode('utf-8'))
     return reparsed.toprettyxml(indent="  ", newl="\n")
 
 
