@@ -807,6 +807,14 @@ class DidlAudioBroadcast(DidlAudioItem):
     )
 
 
+class DidlRecentShow(DidlMusicTrack):
+
+    """Class that represents a recent radio show/podcast."""
+
+    # the DIDL Lite class for this object.
+    item_class = 'object.item.audioItem.musicTrack.recentShow'
+
+
 class DidlAudioBroadcastFavorite(DidlAudioBroadcast):
 
     """Class that represents an audio broadcast Sonos favorite."""
@@ -871,22 +879,6 @@ class DidlLineInItem(DidlItem):
 
     """Class that represents a Sonos Line-In."""
     item_class = 'object.item.audioItem.linein'
-
-
-class DidlRecentShow(DidlAudioItem):
-
-    """Class that represents a recent radio show/podcast."""
-
-    # the DIDL Lite class for this object.
-    item_class = 'object.item.audioItem.musicTrack.recentShow'
-    # name: (ns, tag)
-    _translation = DidlAudioItem._translation.copy()
-    _translation.update(
-        {
-            'artist': ('upnp', 'artist'),
-            'album': ('upnp', 'album'),
-        }
-    )
 
 
 ###############################################################################
