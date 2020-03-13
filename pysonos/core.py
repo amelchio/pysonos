@@ -1129,6 +1129,20 @@ class SoCo(_SocoSingletonBase):
             ('CurrentURIMetaData', '')
         ])
 
+    @staticmethod
+    def is_radio_uri(uri):
+        """bool: Is the URI a stream (not a playlist)."""
+        radio_schemes = (
+            "x-rincon-mp3radio:",
+            "x-sonosapi-stream:",
+            "x-sonosapi-radio:",
+            "x-sonosapi-hls:",
+            "hls-radio:",
+            "x-rincon-stream:",
+            "aac:",
+        )
+        return uri.startswith(radio_schemes)
+
     @property
     def is_playing_radio(self):
         """bool: Is the speaker playing radio?"""
@@ -1136,8 +1150,7 @@ class SoCo(_SocoSingletonBase):
             ('InstanceID', 0),
             ('Channel', 'Master')
         ])
-        track_uri = response['TrackURI']
-        return re.match(r'^x-rincon-mp3radio:', track_uri) is not None
+        return self.is_radio_uri(response['TrackURI'])
 
     @property
     def is_playing_line_in(self):
