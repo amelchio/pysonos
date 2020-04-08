@@ -37,10 +37,7 @@ class StoppableThread(threading.Thread):
         return self._stop_event.is_set()
 
 
-def _discover_thread(callback,
-                     interval,
-                     include_invisible,
-                     interface_addr):
+def _discover_thread(callback, interval, include_invisible, interface_addr):
     """ Discover Sonos zones on the local network. """
 
     def create_socket(interface_addr=None):
@@ -49,26 +46,30 @@ def _discover_thread(callback,
         Create and return a socket with appropriate options set for multicast.
         """
 
-        _sock = socket.socket(
-            socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        _sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         # UPnP v1.0 requires a TTL of 4
-        _sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL,
-                         struct.pack("B", 4))
+        _sock.setsockopt(
+            socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("B", 4)
+        )
         _sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         if interface_addr is not None:
             _sock.setsockopt(
-                socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                socket.inet_aton(interface_addr))
+                socket.IPPROTO_IP,
+                socket.IP_MULTICAST_IF,
+                socket.inet_aton(interface_addr),
+            )
         return _sock
 
     # pylint: disable=invalid-name
-    PLAYER_SEARCH = dedent("""\
+    PLAYER_SEARCH = dedent(
+        """\
         M-SEARCH * HTTP/1.1
         HOST: 239.255.255.250:1900
         MAN: "ssdp:discover"
         MX: 1
         ST: urn:schemas-upnp-org:device:ZonePlayer:1
-        """).encode('utf-8')
+        """
+    ).encode("utf-8")
     BCAST_ADDR = "255.255.255.255"
     MCAST_GRP = "239.255.255.250"
     MCAST_PORT = 1900
@@ -79,8 +80,9 @@ def _discover_thread(callback,
         try:
             address = socket.inet_aton(interface_addr)
         except socket.error:
-            raise ValueError("{0} is not a valid IP address string".format(
-                interface_addr))
+            raise ValueError(
+                "{0} is not a valid IP address string".format(interface_addr)
+            )
         _sockets[interface_addr] = create_socket(interface_addr)
         _LOG.debug("Sending discovery packets on default interface")
     else:
@@ -99,8 +101,12 @@ def _discover_thread(callback,
             try:
                 _sockets[address] = create_socket(address)
             except socket.error as e:
-                _LOG.debug("Can't make a discovery socket for %s: %s: %s",
-                           address, e.__class__.__name__, e)
+                _LOG.debug(
+                    "Can't make a discovery socket for %s: %s: %s",
+                    address,
+                    e.__class__.__name__,
+                    e,
+                )
 
     resend = time.monotonic()
     while not threading.current_thread().stopped():
@@ -108,10 +114,8 @@ def _discover_thread(callback,
             for _addr, _sock in _sockets.items():
                 try:
                     _LOG.debug("Sending discovery packets on %s", _addr)
-                    _sock.sendto(
-                        really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
-                    _sock.sendto(
-                        really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
+                    _sock.sendto(really_utf8(PLAYER_SEARCH), (MCAST_GRP, MCAST_PORT))
+                    _sock.sendto(really_utf8(PLAYER_SEARCH), (BCAST_ADDR, MCAST_PORT))
                 except OSError:
                     _LOG.debug("Discovery failed on %s", _addr)
 
@@ -120,7 +124,8 @@ def _discover_thread(callback,
 
         wait_time = resend - time.monotonic()
         response, _, _ = select.select(
-            list(_sockets.values()), [], [], max(0, wait_time))
+            list(_sockets.values()), [], [], max(0, wait_time)
+        )
 
         # Only Zone Players should respond, given the value of ST in the
         # PLAYER_SEARCH message. However, to prevent misbehaved devices
@@ -144,9 +149,7 @@ def _discover_thread(callback,
         for _sock in response:
             try:
                 data, addr = _sock.recvfrom(1024)
-                _LOG.debug(
-                    'Received discovery response from %s: "%s"', addr, data
-                )
+                _LOG.debug('Received discovery response from %s: "%s"', addr, data)
 
                 if b"Sonos" not in data:
                     continue
@@ -163,31 +166,28 @@ def _discover_thread(callback,
 
             # pylint: disable=broad-except
             except Exception as ex:
-                _LOG.debug('Error handling discovery response, ex=%s', ex)
+                _LOG.debug("Error handling discovery response, ex=%s", ex)
 
     for _sock in _sockets.values():
         _sock.close()
 
 
-def discover_thread(callback,
-                    interval=60,
-                    include_invisible=False,
-                    interface_addr=None,
-                    *,
-                    start=True):
+def discover_thread(
+    callback, interval=60, include_invisible=False, interface_addr=None, *, start=True
+):
     """ Return a started thread with a discovery callback. """
     thread = StoppableThread(
         target=_discover_thread,
-        args=(callback, interval, include_invisible, interface_addr))
+        args=(callback, interval, include_invisible, interface_addr),
+    )
     if start:
         thread.start()
     return thread
 
 
-def discover(timeout=5,
-             include_invisible=False,
-             interface_addr=None,
-             all_households=False):
+def discover(
+    timeout=5, include_invisible=False, interface_addr=None, all_households=False
+):
     """ Discover Sonos zones on the local network.
 
     Return a set of `SoCo` instances for each zone found.
@@ -234,7 +234,8 @@ def discover(timeout=5,
             thread.stop()
 
     thread = discover_thread(
-        callback, 2, include_invisible, interface_addr, start=False)
+        callback, 2, include_invisible, interface_addr, start=False
+    )
     thread.start()
     while thread.is_alive() and not thread.stopped():
         if first_response is None:
@@ -267,8 +268,9 @@ def any_soco():
         # as long as it is visible (i.e. not a bridge etc). Otherwise,
         # perform discovery (again, excluding invisibles) and return one of
         # those
-        device = next(d for d in cls._instances[cls._class_group].values()
-                      if d.is_visible)
+        device = next(
+            d for d in cls._instances[cls._class_group].values() if d.is_visible
+        )
     except (KeyError, StopIteration):
         devices = discover()
         return None if devices is None else devices.pop()
@@ -287,7 +289,7 @@ def by_name(name):
             given player name. If none are found `None` is returned.
     """
     devices = discover(all_households=True)
-    for device in (devices or []):
+    for device in devices or []:
         if device.player_name == name:
             return device
     return None
