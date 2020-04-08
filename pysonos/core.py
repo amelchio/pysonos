@@ -285,6 +285,7 @@ class SoCo(_SocoSingletonBase):
         self._visible_zones = set()
         self._zgs_cache = Cache(default_timeout=5)
         self._zgs_result = None
+        self.current_uri = None
 
         _LOG.debug("Created SoCo instance for ip: %s", ip_address)
 
@@ -1146,6 +1147,24 @@ class SoCo(_SocoSingletonBase):
         )
         track_uri = response["TrackURI"]
         return re.match(r"^x-sonos-htastream:", track_uri) is not None
+
+    @property
+    def is_playing_local_queue(self):
+        """bool: Is the speaker input from local queue?"""
+        media_info = self.avTransport.GetMediaInfo([("InstanceID", 0)])
+        self.current_uri = media_info["CurrentURI"]
+        if self.current_uri.split(":")[0] == "x-rincon-queue":
+            # The pylint error below is a false positive, see about removing it
+            # in the future
+            # pylint: disable=simplifiable-if-statement
+            if self.current_uri.split("#")[1] == "0":
+                # playing local queue
+                return True
+            else:
+                # playing cloud queue - started from Alexa
+                return False
+        else:
+            return False
 
     def switch_to_tv(self):
         """Switch the playbar speaker's input to TV."""
