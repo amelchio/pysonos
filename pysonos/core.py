@@ -1178,7 +1178,8 @@ class SoCo(_SocoSingletonBase):
         media_info = self.avTransport.GetMediaInfo([("InstanceID", 0)])
         current_uri = media_info["CurrentURI"]
 
-        return current_uri.split(":")[0] == "x-rincon-queue" and current_uri.split("#")[1] == "0"
+        return (current_uri.split(":")[0] == "x-rincon-queue" and
+                current_uri.split("#")[1] == "0")
 
     def switch_to_tv(self):
         """Switch the playbar speaker's input to TV."""
