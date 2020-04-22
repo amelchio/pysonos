@@ -1172,6 +1172,15 @@ class SoCo(_SocoSingletonBase):
         track_uri = response['TrackURI']
         return re.match(r'^x-sonos-htastream:', track_uri) is not None
 
+    @property
+    def is_playing_local_queue(self):
+        """bool: Is the speaker input from local queue?"""
+        media_info = self.avTransport.GetMediaInfo([("InstanceID", 0)])
+        current_uri = media_info["CurrentURI"]
+
+        return (current_uri.split(":")[0] == "x-rincon-queue" and
+                current_uri.split("#")[1] == "0")
+
     def switch_to_tv(self):
         """Switch the playbar speaker's input to TV."""
 
