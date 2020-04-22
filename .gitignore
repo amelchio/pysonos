@@ -39,6 +39,3 @@ coverage.xml
 
 # Installer logs
 pip-log.txt
-
-# Visual Studio Code
-.vscode/*

@@ -22,7 +22,9 @@ import weakref
 import requests
 
 from . import config
-from .compat import Queue, BaseHTTPRequestHandler, URLError, socketserver, urlopen
+from .compat import (
+    Queue, BaseHTTPRequestHandler, URLError, socketserver, urlopen
+)
 from .data_structures_entry import from_didl_string
 from .exceptions import SoCoException, SoCoFault, EventParseException
 from .utils import camel_to_underscore
@@ -93,7 +95,8 @@ def parse_event_xml(xml_event):
     tree = XML.fromstring(xml_event)
     # property values are just under the propertyset, which
     # uses this namespace
-    properties = tree.findall("{urn:schemas-upnp-org:event-1-0}property")
+    properties = tree.findall(
+        '{urn:schemas-upnp-org:event-1-0}property')
     for prop in properties:  # pylint: disable=too-many-nested-blocks
         for variable in prop:
             # Special handling for a LastChange event specially. For details on
@@ -101,7 +104,8 @@ def parse_event_xml(xml_event):
             # http://upnp.org/specs/av/UPnP-av-RenderingControl-v1-Service.pdf
             # and http://upnp.org/specs/av/UPnP-av-AVTransport-v1-Service.pdf
             if variable.tag == "LastChange":
-                last_change_tree = XML.fromstring(variable.text.encode("utf-8"))
+                last_change_tree = XML.fromstring(
+                    variable.text.encode('utf-8'))
                 # We assume there is only one InstanceID tag. This is true for
                 # Sonos, as far as we know.
                 # InstanceID can be in one of two namespaces, depending on
@@ -109,22 +113,19 @@ def parse_event_xml(xml_event):
                 # renderingControl event, or a Queue event
                 # (there, it is named QueueID)
                 instance = last_change_tree.find(
-                    "{urn:schemas-upnp-org:metadata-1-0/AVT/}InstanceID"
-                )
+                    "{urn:schemas-upnp-org:metadata-1-0/AVT/}InstanceID")
                 if instance is None:
                     instance = last_change_tree.find(
-                        "{urn:schemas-upnp-org:metadata-1-0/RCS/}InstanceID"
-                    )
+                        "{urn:schemas-upnp-org:metadata-1-0/RCS/}InstanceID")
                 if instance is None:
                     instance = last_change_tree.find(
-                        "{urn:schemas-sonos-com:metadata-1-0/Queue/}QueueID"
-                    )
+                        "{urn:schemas-sonos-com:metadata-1-0/Queue/}QueueID")
                 # Look at each variable within the LastChange event
                 for last_change_var in instance:
                     tag = last_change_var.tag
                     # Remove any namespaces from the tags
-                    if tag.startswith("{"):
-                        tag = tag.split("}", 1)[1]
+                    if tag.startswith('{'):
+                        tag = tag.split('}', 1)[1]
                     # Un-camel case it
                     tag = camel_to_underscore(tag)
                     # Now extract the relevant value for the variable.
@@ -134,12 +135,12 @@ def parse_event_xml(xml_event):
                     # 'channel' attribute. In addition, it seems that Sonos
                     # sometimes uses a text value instead: see
                     # http://forums.sonos.com/showthread.php?t=34663
-                    value = last_change_var.get("val")
+                    value = last_change_var.get('val')
                     if value is None:
                         value = last_change_var.text
                     # If DIDL metadata is returned, convert it to a music
                     # library data structure
-                    if value.startswith("<DIDL-Lite"):
+                    if value.startswith('<DIDL-Lite'):
                         # Wrap any parsing exception in a SoCoFault, so the
                         # user can handle it
                         try:
@@ -148,19 +149,16 @@ def parse_event_xml(xml_event):
                                 continue
                             value = didl[0]
                         except SoCoException as original_exception:
-                            log.debug(
-                                "Event contains illegal metadata"
-                                "for '%s'.\n"
-                                "Error message: '%s'\n"
-                                "The result will be a SoCoFault.",
-                                tag,
-                                str(original_exception),
-                            )
+                            log.debug("Event contains illegal metadata"
+                                      "for '%s'.\n"
+                                      "Error message: '%s'\n"
+                                      "The result will be a SoCoFault.",
+                                      tag, str(original_exception))
                             event_parse_exception = EventParseException(
                                 tag, value, original_exception
                             )
                             value = SoCoFault(event_parse_exception)
-                    channel = last_change_var.get("channel")
+                    channel = last_change_var.get('channel')
                     if channel is not None:
                         if result.get(tag) is None:
                             result[tag] = {}
@@ -202,23 +200,22 @@ class Event(object):
         'STOPPED'
 
     """
-
     # pylint: disable=too-few-public-methods, too-many-arguments
 
     def __init__(self, sid, seq, service, timestamp, variables=None):
         # Initialisation has to be done like this, because __setattr__ is
         # overridden, and will not allow direct setting of attributes
-        self.__dict__["sid"] = sid
-        self.__dict__["seq"] = seq
-        self.__dict__["timestamp"] = timestamp
-        self.__dict__["service"] = service
-        self.__dict__["variables"] = variables if variables is not None else {}
+        self.__dict__['sid'] = sid
+        self.__dict__['seq'] = seq
+        self.__dict__['timestamp'] = timestamp
+        self.__dict__['service'] = service
+        self.__dict__['variables'] = variables if variables is not None else {}
 
     def __getattr__(self, name):
         if name in self.variables:
             return self.variables[name]
         else:
-            raise AttributeError("No such attribute: %s" % name)
+            raise AttributeError('No such attribute: %s' % name)
 
     def __setattr__(self, name, value):
         """Disable (most) attempts to set attributes.
@@ -226,12 +223,11 @@ class Event(object):
         This is not completely foolproof. It just acts as a warning! See
         `object.__setattr__`.
         """
-        raise TypeError("Event object does not support attribute assignment")
+        raise TypeError('Event object does not support attribute assignment')
 
 
 class EventServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     """A TCP server which handles each new request in a new thread."""
-
     allow_reuse_address = True
 
 
@@ -248,9 +244,9 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
         """
         timestamp = time.time()
         headers = requests.structures.CaseInsensitiveDict(self.headers)
-        seq = headers["seq"]  # Event sequence number
-        sid = headers["sid"]  # Event Subscription Identifier
-        content_length = int(headers["content-length"])
+        seq = headers['seq']  # Event sequence number
+        sid = headers['sid']  # Event Subscription Identifier
+        content_length = int(headers['content-length'])
         content = self.rfile.read(content_length)
         # Find the relevant service and queue from the sid
         with _subscriptions_lock:
@@ -259,12 +255,8 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
         if subscription:
             service = subscription.service
             log.debug(
-                "Event %s received for %s service on thread %s at %s",
-                seq,
-                service.service_id,
-                threading.current_thread(),
-                timestamp,
-            )
+                "Event %s received for %s service on thread %s at %s", seq,
+                service.service_id, threading.current_thread(), timestamp)
             log.debug("Event content: %s", content)
             variables = parse_event_xml(content)
             # Build the Event object
@@ -278,7 +270,7 @@ class EventNotifyHandler(BaseHTTPRequestHandler):
                 subscription.events.put(event)
             # pylint: disable=broad-except
             except Exception as ex:
-                log.debug("Error putting event %s, ex=%s", event, ex)
+                log.debug('Error putting event %s, ex=%s', event, ex)
 
         else:
             log.debug("No service registered for %s", sid)
@@ -363,8 +355,10 @@ class EventListener(object):
                 if config.EVENT_LISTENER_IP:
                     ip_address = config.EVENT_LISTENER_IP
                 else:
-                    temp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    temp_sock.connect((any_zone.ip_address, config.EVENT_LISTENER_PORT))
+                    temp_sock = socket.socket(socket.AF_INET,
+                                              socket.SOCK_DGRAM)
+                    temp_sock.connect((any_zone.ip_address,
+                                       config.EVENT_LISTENER_PORT))
                     ip_address = temp_sock.getsockname()[0]
                     temp_sock.close()
 
@@ -382,7 +376,8 @@ class EventListener(object):
         self._listener_thread.stop_flag.set()
         # Send a dummy request in case the http server is currently listening
         try:
-            urlopen("http://%s:%s/" % (self.address[0], self.address[1]))
+            urlopen(
+                'http://%s:%s/' % (self.address[0], self.address[1]))
         except URLError:
             # If the server is already shut down, we receive a socket error,
             # which we ignore.
@@ -395,7 +390,6 @@ class EventListener(object):
 
 class Subscription(object):
     """A class representing the subscription to a UPnP event."""
-
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self, service, event_queue=None):
@@ -475,7 +469,8 @@ class Subscription(object):
         # to be allocated
         self.requested_timeout = requested_timeout
         if self._has_been_unsubscribed:
-            raise SoCoException("Cannot resubscribe instance once unsubscribed")
+            raise SoCoException(
+                'Cannot resubscribe instance once unsubscribed')
         service = self.service
         # The event listener must be running, so start it if not
         if not event_listener.is_running:
@@ -494,8 +489,8 @@ class Subscription(object):
             ip_address = config.EVENT_ADVERTISE_IP
 
         headers = {
-            "Callback": "<http://{}:{}>".format(ip_address, port),
-            "NT": "upnp:event",
+            'Callback': '<http://{}:{}>'.format(ip_address, port),
+            'NT': 'upnp:event'
         }
         if requested_timeout is not None:
             headers["TIMEOUT"] = "Second-{}".format(requested_timeout)
@@ -503,27 +498,23 @@ class Subscription(object):
         # Lock out EventNotifyHandler during registration
         with _subscriptions_lock:
             response = requests.request(
-                "SUBSCRIBE",
-                service.base_url + service.event_subscription_url,
-                headers=headers,
-            )
+                'SUBSCRIBE', service.base_url + service.event_subscription_url,
+                headers=headers)
             response.raise_for_status()
-            self.sid = response.headers["sid"]
-            timeout = response.headers["timeout"]
+            self.sid = response.headers['sid']
+            timeout = response.headers['timeout']
             # According to the spec, timeout can be "infinite" or "second-123"
             # where 123 is a number of seconds.  Sonos uses "Second-123" (with
             # a capital letter)
-            if timeout.lower() == "infinite":
+            if timeout.lower() == 'infinite':
                 self.timeout = None
             else:
-                self.timeout = int(timeout.lstrip("Second-"))
+                self.timeout = int(timeout.lstrip('Second-'))
             self._timestamp = time.time()
             self.is_subscribed = True
             log.debug(
                 "Subscribed to %s, sid: %s",
-                service.base_url + service.event_subscription_url,
-                self.sid,
-            )
+                service.base_url + service.event_subscription_url, self.sid)
             # Add the subscription to the master dict so it can be looked up
             # by sid
             _subscriptions[self.sid] = self
@@ -539,8 +530,7 @@ class Subscription(object):
         # Autorenew just before expiry, say at 85% of self.timeout seconds
         interval = self.timeout * 85 / 100
         auto_renew_thread = AutoRenewThread(
-            interval, self._auto_renew_thread_flag, self
-        )
+            interval, self._auto_renew_thread_flag, self)
         auto_renew_thread.start()
 
     def renew(self, requested_timeout=None):
@@ -558,42 +548,45 @@ class Subscription(object):
         # subscriptions are auto-renewed. Be careful to ensure thread-safety
 
         if self._has_been_unsubscribed:
-            raise SoCoException("Cannot renew subscription once unsubscribed")
+            raise SoCoException(
+                'Cannot renew subscription once unsubscribed')
         if not self.is_subscribed:
-            raise SoCoException("Cannot renew subscription before subscribing")
+            raise SoCoException(
+                'Cannot renew subscription before subscribing')
         if self.time_left == 0:
-            raise SoCoException("Cannot renew subscription after expiry")
+            raise SoCoException(
+                'Cannot renew subscription after expiry')
 
         # SUBSCRIBE publisher path HTTP/1.1
         # HOST: publisher host:publisher port
         # SID: uuid:subscription UUID
         # TIMEOUT: Second-requested subscription duration (optional)
-        headers = {"SID": self.sid}
+        headers = {
+            'SID': self.sid
+        }
         if requested_timeout is None:
             requested_timeout = self.requested_timeout
         if requested_timeout is not None:
             headers["TIMEOUT"] = "Second-{}".format(requested_timeout)
         response = requests.request(
-            "SUBSCRIBE",
+            'SUBSCRIBE',
             self.service.base_url + self.service.event_subscription_url,
-            headers=headers,
-        )
+            headers=headers)
         response.raise_for_status()
-        timeout = response.headers["timeout"]
+        timeout = response.headers['timeout']
         # According to the spec, timeout can be "infinite" or "second-123"
         # where 123 is a number of seconds.  Sonos uses "Second-123" (with a
         # a capital letter)
-        if timeout.lower() == "infinite":
+        if timeout.lower() == 'infinite':
             self.timeout = None
         else:
-            self.timeout = int(timeout.lstrip("Second-"))
+            self.timeout = int(timeout.lstrip('Second-'))
         self._timestamp = time.time()
         self.is_subscribed = True
         log.debug(
             "Renewed subscription to %s, sid: %s",
             self.service.base_url + self.service.event_subscription_url,
-            self.sid,
-        )
+            self.sid)
 
     def unsubscribe(self):
         """Unsubscribe from the service's events.
@@ -611,15 +604,16 @@ class Subscription(object):
         # UNSUBSCRIBE publisher path HTTP/1.1
         # HOST: publisher host:publisher port
         # SID: uuid:subscription UUID
-        headers = {"SID": self.sid}
+        headers = {
+            'SID': self.sid
+        }
         response = None
         try:
             response = requests.request(
-                "UNSUBSCRIBE",
+                'UNSUBSCRIBE',
                 self.service.base_url + self.service.event_subscription_url,
                 headers=headers,
-                timeout=3,
-            )
+                timeout=3)
         except requests.exceptions.RequestException:
             pass
 
@@ -628,8 +622,7 @@ class Subscription(object):
         log.debug(
             "Unsubscribed from %s, sid: %s",
             self.service.base_url + self.service.event_subscription_url,
-            self.sid,
-        )
+            self.sid)
         # remove queue from event queues and sid to service mappings
 
         with _subscriptions_lock:

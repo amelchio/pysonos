@@ -16,21 +16,21 @@ from .discovery import discover, discover_thread
 from .exceptions import SoCoException, UnknownSoCoException
 
 # Will be parsed by setup.py to determine package metadata
-__author__ = "Anders Melchiorsen <amelchio@nogoto.net>"
+__author__ = 'Anders Melchiorsen <amelchio@nogoto.net>'
 # Please add the suffix "+" to the version after release, to make it
 # possible infer whether in development code from the version string
-__version__ = "0.0.25"
-__website__ = "https://github.com/amelchio/pysonos"
-__license__ = "MIT License"
+__version__ = '0.0.25'
+__website__ = 'https://github.com/amelchio/pysonos'
+__license__ = 'MIT License'
 
 # You really should not `import *` - it is poor practice
 # but if you do, here is what you get:
 __all__ = [
-    "discover",
-    "discover_thread",
-    "SoCo",
-    "SoCoException",
-    "UnknownSoCoException",
+    'discover',
+    'discover_thread',
+    'SoCo',
+    'SoCoException',
+    'UnknownSoCoException',
 ]
 
 # http://docs.python.org/2/howto/logging.html#library-config

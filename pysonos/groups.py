@@ -90,8 +90,7 @@ class ZoneGroup(object):
 
     def __repr__(self):
         return "{0}(uid='{1}', coordinator={2!r}, members={3!r})".format(
-            self.__class__.__name__, self.uid, self.coordinator, self.members
-        )
+            self.__class__.__name__, self.uid, self.coordinator, self.members)
 
     @property
     def label(self):
