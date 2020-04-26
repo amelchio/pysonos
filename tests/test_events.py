@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 
 import pytest
 
-from pysonos.events import (
+from pysonos.events_base import (
     Event, parse_event_xml
 )
 

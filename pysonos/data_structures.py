@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# pylint: disable=star-args, too-many-arguments, fixme
+# pylint: disable=star-args, too-many-arguments, fixme, import-outside-toplevel
 
 # Disable while we have Python 2.x compatability
 # pylint: disable=useless-object-inheritance,bad-mcs-classmethod-argument
@@ -41,6 +41,7 @@ from .utils import really_unicode
 from .xml import (
     XML, ns_tag
 )
+from .data_structure_quirks import apply_resource_quirks
 
 # Due to cyclic import problems, we only import from_didl_string at runtime.
 # from data_structures_entry import from_didl_string
@@ -167,6 +168,9 @@ class DidlResource(object):
                         'Could not convert {0} to an integer'.format(name))
             else:
                 return None
+
+        # Check for and fix non-spec compliant behavior in the incoming data
+        element = apply_resource_quirks(element)
 
         content = {}
         # required

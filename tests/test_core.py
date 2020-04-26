@@ -26,7 +26,7 @@ def moco():
     """
     services = (
         'AVTransport', 'RenderingControl', 'DeviceProperties',
-        'ContentDirectory', 'ZoneGroupTopology')
+        'ContentDirectory', 'ZoneGroupTopology', 'GroupRenderingControl')
     patchers = [mock.patch('pysonos.core.{}'.format(service))
                 for service in services]
     for patch in patchers:
@@ -48,7 +48,7 @@ def moco_only_on_master():
     """
     services = (
         'AVTransport', 'RenderingControl', 'DeviceProperties',
-        'ContentDirectory', 'ZoneGroupTopology')
+        'ContentDirectory', 'ZoneGroupTopology', 'GroupRenderingControl')
     patchers = [mock.patch('pysonos.core.{}'.format(service))
                 for service in services]
     for patch in patchers:
@@ -1028,6 +1028,14 @@ class TestRenderingControl:
         )
         assert ramp_time == 12
 
+    def test_set_relative_volume(self, moco):
+        moco.renderingControl.SetRelativeVolume.return_value = {'NewVolume': '75'}
+        new_volume = moco.set_relative_volume(25)
+        moco.renderingControl.SetRelativeVolume.assert_called_once_with(
+            [('InstanceID', 0), ('Channel', 'Master'), ('Adjustment', 25)]
+        )
+        assert new_volume == 75
+
     def test_soco_treble(self, moco):
         moco.renderingControl.GetTreble.return_value = {'CurrentTreble': '15'}
         assert moco.treble == 15
@@ -1037,7 +1045,7 @@ class TestRenderingControl:
         moco.treble = '10'
         moco.renderingControl.SetTreble.assert_called_once_with(
             [('InstanceID', 0),
-                ('DesiredTreble', 10)]
+             ('DesiredTreble', 10)]
         )
 
     def test_soco_loudness(self, moco):
@@ -1050,7 +1058,35 @@ class TestRenderingControl:
         moco.loudness = False
         moco.renderingControl.SetLoudness.assert_called_once_with(
             [('InstanceID', 0), ('Channel', 'Master'),
-                ('DesiredLoudness', '0')]
+             ('DesiredLoudness', '0')]
+        )
+
+    def test_soco_balance(self, moco):
+        # GetVolume is called twice, once for each of the left
+        # and right channels
+        moco.renderingControl.GetVolume.return_value = {
+            'CurrentVolume': '100'}
+        assert moco.balance == (100, 100)
+        moco.renderingControl.GetVolume.assert_any_call(
+            [('InstanceID', 0),
+             ('Channel', 'LF')]
+        )
+        moco.renderingControl.GetVolume.assert_any_call(
+            [('InstanceID', 0),
+             ('Channel', 'RF'),]
+        )
+        # SetVolume is called twice, once for each of the left
+        # and right channels
+        moco.balance = (0, 100)
+        moco.renderingControl.SetVolume.assert_any_call(
+            [('InstanceID', 0),
+             ('Channel', 'LF'),
+             ('DesiredVolume', 0)]
+        )
+        moco.renderingControl.SetVolume.assert_any_call(
+            [('InstanceID', 0),
+             ('Channel', 'RF'),
+             ('DesiredVolume', 100)]
         )
 
 
@@ -1148,6 +1184,48 @@ class TestZoneGroupTopology:
                 'ZoneGroupState': ZGS
             }
         assert g.short_label == "Kitchen + 1"
+
+    def test_group_volume(self, moco_zgs):
+        g = moco_zgs.group
+        c = moco_zgs.group.coordinator
+        c.groupRenderingControl.GetGroupVolume.return_value = {
+            'CurrentVolume': 50
+        }
+        assert g.volume == 50
+        c.groupRenderingControl.GetGroupVolume.assert_called_once_with(
+            [('InstanceID', 0)]
+        )
+        g.volume = 75
+        c.groupRenderingControl.SetGroupVolume.assert_called_once_with(
+            [('InstanceID', 0), ('DesiredVolume', 75)]
+        )
+
+    def test_group_mute(self, moco_zgs):
+        g = moco_zgs.group
+        c = moco_zgs.group.coordinator
+        c.groupRenderingControl.GetGroupMute.return_value = {
+            'CurrentMute': '0'
+        }
+        assert g.mute is False
+        c.groupRenderingControl.GetGroupMute.assert_called_once_with(
+            [('InstanceID', 0)]
+        )
+        g.mute = True
+        c.groupRenderingControl.SetGroupMute.assert_called_once_with(
+            [('InstanceID', 0), ('DesiredMute', '1')]
+        )
+
+    def test_set_relative_group_volume(self, moco_zgs):
+        g = moco_zgs.group
+        c = moco_zgs.group.coordinator
+        c.groupRenderingControl.SetRelativeGroupVolume.return_value = {
+            'NewVolume': '75'
+        }
+        new_volume = g.set_relative_volume(25)
+        c.groupRenderingControl.SetRelativeGroupVolume.assert_called_once_with(
+            [('InstanceID', 0), ('Adjustment', 25)]
+        )
+        assert new_volume == 75
 
 
 def test_only_on_master_true(moco_only_on_master):
