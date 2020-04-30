@@ -2,7 +2,7 @@
 # pylint: disable=not-context-manager
 
 # NOTE: The pylint not-content-manager warning is disabled pending the fix of
-# a bug in pylint: https://github.com/PyCQA/pylint/issues/782
+# a bug in pylint, see https://github.com/PyCQA/pylint/issues/782
 
 # Disable while we have Python 2.x compatability
 # pylint: disable=useless-object-inheritance
