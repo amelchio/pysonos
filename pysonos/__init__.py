@@ -10,6 +10,8 @@
 
 
 import logging
+import warnings
+import sys
 
 from .core import SoCo
 from .discovery import discover, discover_thread
@@ -37,3 +39,9 @@ __all__ = [
 # Avoids spurious error messages if no logger is configured by the user
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+if sys.version_info.major < 3:
+    warnings.warn(
+        "Version 0.19 of SoCo is the last to support Python 2.7",
+        stacklevel=2,
+    )

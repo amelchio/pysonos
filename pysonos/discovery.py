@@ -287,6 +287,7 @@ def by_name(name):
             given player name. If none are found `None` is returned.
     """
     devices = discover(all_households=True)
+
     for device in (devices or []):
         if device.player_name == name:
             return device
