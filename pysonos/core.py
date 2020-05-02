@@ -1290,6 +1290,7 @@ class SoCo(_SocoSingletonBase):
             ('DesiredLEDState', led_state),
         ])
 
+    # pylint: disable=too-many-branches
     def get_current_track_info(self):
         """Get information about the currently playing track.
 
@@ -1336,6 +1337,17 @@ class SoCo(_SocoSingletonBase):
             if index > -1:
                 track['artist'] = trackinfo[:index]
                 track['title'] = trackinfo[index + 3:]
+            elif trackinfo.startswith('BR P|TYPE=SNG'):
+                # Tagging used by e.g. SiriusXM:
+                # "BR P|TYPE=SNG|TITLE 7.15.17 LA|ARTIST Eagles|ALBUM "
+                tags = dict([p.split(" ", 1) for p in trackinfo.split("|")
+                             if " " in p])
+                if tags.get("TITLE"):
+                    track['title'] = tags["TITLE"]
+                if tags.get("ARTIST"):
+                    track['artist'] = tags["ARTIST"]
+                if tags.get("ALBUM"):
+                    track['album'] = tags["ALBUM"]
             else:
                 # Might find some kind of title anyway in metadata
                 track['title'] = metadata.findtext('.//{http://purl.org/dc/'
