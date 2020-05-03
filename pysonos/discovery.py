@@ -18,7 +18,7 @@ from .utils import really_utf8
 
 _LOG = logging.getLogger(__name__)
 
-# pylint: disable=too-many-locals, too-many-branches
+# pylint: disable=too-many-locals, too-many-branches, too-many-statements
 
 
 class StoppableThread(threading.Thread):
@@ -27,10 +27,12 @@ class StoppableThread(threading.Thread):
     def __init__(self, target, args):
         super().__init__(target=target, args=args)
         self._stop_event = threading.Event()
+        self.stop_lock = threading.Lock()
 
     def stop(self):
         """Ask the thread to stop."""
-        self._stop_event.set()
+        with self.stop_lock:
+            self._stop_event.set()
 
     def stopped(self):
         """Returns True if stop() has been called."""
@@ -159,7 +161,9 @@ def _discover_thread(callback,
                 seen.add(zone)
 
                 if include_invisible or zone.is_visible:
-                    callback(zone)
+                    with threading.current_thread().stop_lock:
+                        if not threading.current_thread().stopped():
+                            callback(zone)
 
             # pylint: disable=broad-except
             except Exception as ex:
@@ -186,8 +190,7 @@ def discover_thread(callback,
 
 def discover(timeout=5,
              include_invisible=False,
-             interface_addr=None,
-             all_households=False):
+             interface_addr=None):
     """ Discover Sonos zones on the local network.
 
     Return a set of `SoCo` instances for each zone found.
@@ -206,9 +209,6 @@ def discover(timeout=5,
             the source of the datagrams (i.e. it is a value for
             `socket.IP_MULTICAST_IF <socket>`). If `None` or not specified,
             all system interfaces will be tried. Defaults to `None`.
-        all_households (bool, optional): wait for all replies to discover
-            multiple households. If `False` or not specified, return only
-            the first household found.
     Returns:
         set: a set of `SoCo` instances, one for each zone found, or else
             `None`.
@@ -229,9 +229,6 @@ def discover(timeout=5,
             found_zones.update(zone.all_zones)
         else:
             found_zones.update(zone.visible_zones)
-
-        if not all_households:
-            thread.stop()
 
     thread = discover_thread(
         callback, 2, include_invisible, interface_addr, start=False)
@@ -286,7 +283,7 @@ def by_name(name):
         :class:`~.SoCo`: The first device encountered among all zone with the
             given player name. If none are found `None` is returned.
     """
-    devices = discover(all_households=True)
+    devices = discover()
 
     for device in (devices or []):
         if device.player_name == name:
