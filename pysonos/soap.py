@@ -242,10 +242,10 @@ class SoapMessage(object):
             '<?xml version="1.0"?>'
             '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"'
             ' s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">'
-                '{soap_header}'
-                    '<s:Body>'
-                        '{soap_body}'
-                    '</s:Body>'
+            '{soap_header}'
+            '<s:Body>'
+            '{soap_body}'
+            '</s:Body>'
             '</s:Envelope>')  # noqa PEP8
         return soap_env_template.format(
             soap_header=prepared_soap_header,

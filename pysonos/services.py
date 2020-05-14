@@ -113,12 +113,12 @@ class Service(object):
         '<?xml version="1.0"?>'
         '<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"'
         ' s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">'
-            '<s:Body>'
-                '<u:{action} xmlns:u="urn:schemas-upnp-org:service:'
-                    '{service_type}:{version}">'
-                    '{arguments}'
-                '</u:{action}>'
-            '</s:Body>'
+        '<s:Body>'
+        '<u:{action} xmlns:u="urn:schemas-upnp-org:service:'
+        '{service_type}:{version}">'
+        '{arguments}'
+        '</u:{action}>'
+        '</s:Body>'
         '</s:Envelope>')  # noqa PEP8
 
     def __init__(self, soco):
