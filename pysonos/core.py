@@ -2158,7 +2158,7 @@ PLAY_MODES = {
 PLAY_MODE_BY_MEANING = {meaning: mode for mode, meaning in PLAY_MODES.items()}
 
 # soundbar product names
-SOUNDBARS = ('playbase', 'playbar', 'beam')
+SOUNDBARS = ('playbase', 'playbar', 'beam', 'sonos amp')
 
 if config.SOCO_CLASS is None:
     config.SOCO_CLASS = SoCo
