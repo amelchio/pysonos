@@ -21,7 +21,7 @@ from .exceptions import SoCoException, UnknownSoCoException
 __author__ = 'Anders Melchiorsen <amelchio@nogoto.net>'
 # Please add the suffix "+" to the version after release, to make it
 # possible infer whether in development code from the version string
-__version__ = '0.0.30'
+__version__ = '0.0.31'
 __website__ = 'https://github.com/amelchio/pysonos'
 __license__ = 'MIT License'
 
