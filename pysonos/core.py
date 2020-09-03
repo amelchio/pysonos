@@ -1385,6 +1385,32 @@ class SoCo(_SocoSingletonBase):
 
         return track
 
+    def get_current_media_info(self):
+        """Get information about the currently playing media.
+
+        Returns:
+            dict: A dictionary containing information about the currently
+            playing media: uri, channel.
+
+        """
+        response = self.avTransport.GetMediaInfo([
+            ("InstanceID", 0)
+        ])
+        media = {'uri': '', 'channel': ''}
+
+        media['uri'] = response['CurrentURI']
+
+        metadata = response.get('CurrentURIMetaData')
+        if metadata:
+            metadata = XML.fromstring(really_utf8(metadata))
+            md_title = metadata.findtext(
+                ".//{http://purl.org/dc/elements/1.1/}title")
+
+            if md_title:
+                media['channel'] = md_title
+
+        return media
+
     def get_speaker_info(self, refresh=False, timeout=None):
         """Get information about the Sonos speaker.
 
