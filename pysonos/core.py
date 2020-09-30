@@ -1582,11 +1582,88 @@ class SoCo(_SocoSingletonBase):
 
         For arguments and return value see `add_to_queue`.
         """
+        spotify = self.add_spotify_uri_to_queue(uri, position, as_next)
+        if spotify is not None:
+            return spotify
+
         # FIXME: The res.protocol_info should probably represent the mime type
         # etc of the uri. But this seems OK.
         res = [DidlResource(uri=uri, protocol_info="x-rincon-playlist:*:*:*")]
         item = DidlObject(resources=res, title='', parent_id='', item_id='')
         return self.add_to_queue(item, position, as_next)
+
+    @only_on_master
+    def add_spotify_uri_to_queue(self, spotify_uri, position=0, as_next=False):
+        """Add a queueable item to the queue.
+
+        Args:
+            spotify_uri (str): A URI like
+                `spotify:album:6wiUBliPe76YAVpNEdidpY`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+
+        # Extract canonical Spotify URI.
+        match = re.search(
+            r"spotify.*[:/](album|track|playlist)[:/](\w+)", spotify_uri)
+        if match:
+            spotify_uri = "spotify:" + match.group(1) + ":" + match.group(2)
+
+        if not spotify_uri.startswith("spotify:"):
+            return None
+
+        spotify_magic = {
+            "album": {
+                "prefix": "x-rincon-cpcontainer:1004206c",
+                "key": "1004206c",
+                "class": "object.container.album.musicAlbum",
+            },
+            "track": {
+                "prefix": "",
+                "key": "00032020",
+                "class": "object.item.audioItem.musicTrack",
+            },
+            "playlist": {
+                "prefix": "x-rincon-cpcontainer:1006206c",
+                "key": "1006206c",
+                "class": "object.container.playlistContainer",
+            },
+        }
+        spotify_type = spotify_uri.split(":")[1]
+
+        encoded_uri = spotify_uri.replace(":", "%3a")
+        enqueue_uri = spotify_magic[spotify_type]["prefix"] + encoded_uri
+
+        metadata_template = ('<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
+                             '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
+                             '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
+                             'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
+                             'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
+                             'tricted="true"><upnp:class>{item_class}</upnp:cl'
+                             'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
+                             'onnetworks-com:metadata-1-0/">SA_RINCON2311_X_#S'
+                             'vc2311-0-Token</desc></item></DIDL-Lite>')
+
+        metadata = metadata_template.format(
+            item_id=spotify_magic[spotify_type]["key"] + encoded_uri,
+            item_class=spotify_magic[spotify_type]["class"])
+
+        response = self.avTransport.AddURIToQueue(
+            [
+                ("InstanceID", 0),
+                ("EnqueuedURI", enqueue_uri),
+                ("EnqueuedURIMetaData", metadata),
+                ("DesiredFirstTrackNumberEnqueued", position),
+                ("EnqueueAsNext", int(as_next)),
+            ]
+        )
+        qnumber = response["FirstTrackNumberEnqueued"]
+        return int(qnumber)
 
     @only_on_master
     def add_to_queue(self, queueable_item, position=0, as_next=False):
