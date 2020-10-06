@@ -1582,23 +1582,32 @@ class SoCo(_SocoSingletonBase):
 
         For arguments and return value see `add_to_queue`.
         """
-        spotify = self.add_spotify_uri_to_queue(uri, position, as_next)
-        if spotify is not None:
-            return spotify
-
         # FIXME: The res.protocol_info should probably represent the mime type
         # etc of the uri. But this seems OK.
         res = [DidlResource(uri=uri, protocol_info="x-rincon-playlist:*:*:*")]
         item = DidlObject(resources=res, title='', parent_id='', item_id='')
         return self.add_to_queue(item, position, as_next)
 
+    @staticmethod
+    def _spotify_uri(uri):
+        """str: The canonical Spotify URI."""
+        match = re.search(
+            r"spotify.*[:/](album|track|playlist)[:/](\w+)", uri)
+        if match:
+            return "spotify:" + match.group(1) + ":" + match.group(2)
+
+        return None
+
+    def is_spotify_uri(self, uri):
+        """bool: Is the URI for Spotify."""
+        return self._spotify_uri(uri) is not None
+
     @only_on_master
-    def add_spotify_uri_to_queue(self, spotify_uri, position=0, as_next=False):
+    def add_spotify_uri_to_queue(self, uri, position=0, as_next=False):
         """Add a queueable item to the queue.
 
         Args:
-            spotify_uri (str): A URI like
-                `spotify:album:6wiUBliPe76YAVpNEdidpY`.
+            uri (str): A URI like `spotify:album:6wiUBliPe76YAVpNEdidpY`.
             position (int): The index (1-based) at which the URI should be
                 added. Default is 0 (add URI at the end of the queue).
             as_next (bool): Whether this URI should be played as the next
@@ -1608,14 +1617,7 @@ class SoCo(_SocoSingletonBase):
             int: The index of the new item in the queue.
         """
 
-        # Extract canonical Spotify URI.
-        match = re.search(
-            r"spotify.*[:/](album|track|playlist)[:/](\w+)", spotify_uri)
-        if match:
-            spotify_uri = "spotify:" + match.group(1) + ":" + match.group(2)
-
-        if not spotify_uri.startswith("spotify:"):
-            return None
+        spotify_uri = self._spotify_uri(uri)
 
         spotify_magic = {
             "album": {
