@@ -1604,7 +1604,7 @@ class SoCo(_SocoSingletonBase):
 
     @only_on_master
     def add_spotify_uri_to_queue(self, uri, position=0, as_next=False):
-        """Add a queueable item to the queue.
+        """Add a Spotify item to the queue.
 
         Args:
             uri (str): A URI like `spotify:album:6wiUBliPe76YAVpNEdidpY`.
@@ -1616,6 +1616,27 @@ class SoCo(_SocoSingletonBase):
         Returns:
             int: The index of the new item in the queue.
         """
+
+        spotify_services = (
+            2311,  # Global
+            3079,  # US
+        )
+
+        for service_no in spotify_services:
+            try:
+                return self._add_spotify_uri_to_queue_with_service(
+                    uri, service_no, position, as_next)
+            except SoCoUPnPException as err:
+                exception = err
+                if err.error_code != "800":
+                    break
+
+        raise exception
+
+    @only_on_master
+    def _add_spotify_uri_to_queue_with_service(self, uri, service_no,
+                                               position=0, as_next=False):
+        """Helper for add_spotify_uri_to_queue."""
 
         spotify_uri = self._spotify_uri(uri)
 
@@ -1648,12 +1669,14 @@ class SoCo(_SocoSingletonBase):
                              'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
                              'tricted="true"><upnp:class>{item_class}</upnp:cl'
                              'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
-                             'onnetworks-com:metadata-1-0/">SA_RINCON2311_X_#S'
-                             'vc2311-0-Token</desc></item></DIDL-Lite>')
+                             'onnetworks-com:metadata-1-0/">SA_RINCON{sn}_X_#S'
+                             'vc{sn}-0-Token</desc></item></DIDL-Lite>')
 
         metadata = metadata_template.format(
             item_id=spotify_magic[spotify_type]["key"] + encoded_uri,
-            item_class=spotify_magic[spotify_type]["class"])
+            item_class=spotify_magic[spotify_type]["class"],
+            sn=service_no,
+        )
 
         response = self.avTransport.AddURIToQueue(
             [
