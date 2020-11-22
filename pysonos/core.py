@@ -1176,7 +1176,6 @@ class SoCo(_SocoSingletonBase):
             ('CurrentURIMetaData', '')
         ])
         self._zgs_cache.clear()
-        self._parse_zone_group_state()
 
     def unjoin(self):
         """Remove this speaker from a group.
@@ -1190,7 +1189,6 @@ class SoCo(_SocoSingletonBase):
             ('InstanceID', 0)
         ])
         self._zgs_cache.clear()
-        self._parse_zone_group_state()
 
     def switch_to_line_in(self, source=None):
         """ Switch the speaker's input to line-in.
