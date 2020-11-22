@@ -41,6 +41,11 @@ from .utils import (
 )
 from .xml import XML
 
+PLAYING_TV = "tv"
+PLAYING_LINE_IN = "line-in"
+PLAYING_RADIO = "radio"
+PLAYING_MUSIC = "music"
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -1222,43 +1227,40 @@ class SoCo(_SocoSingletonBase):
         )
         return uri.startswith(radio_schemes)
 
+    def whats_playing(self, track_uri=None):
+        """str: PLAYING_TV, PLAYING_LINE_IN, PLAYING_RADIO or PLAYING_MUSIC."""
+        if track_uri is None:
+            response = self.avTransport.GetPositionInfo([
+                ('InstanceID', 0),
+                ('Channel', 'Master')
+            ])
+            track_uri = response['TrackURI']
+
+        if re.match(r'^x-sonos-htastream:', track_uri) is not None:
+            return PLAYING_TV
+
+        if re.match(r'^x-rincon-stream:', track_uri) is not None:
+            return PLAYING_LINE_IN
+
+        if self.is_radio_uri(track_uri):
+            return PLAYING_RADIO
+
+        return PLAYING_MUSIC
+
     @property
     def is_playing_radio(self):
         """bool: Is the speaker playing radio?"""
-        response = self.avTransport.GetPositionInfo([
-            ('InstanceID', 0),
-            ('Channel', 'Master')
-        ])
-        return self.is_radio_uri(response['TrackURI'])
+        return self.whats_playing() == PLAYING_RADIO
 
     @property
     def is_playing_line_in(self):
         """bool: Is the speaker playing line-in?"""
-        response = self.avTransport.GetPositionInfo([
-            ('InstanceID', 0),
-            ('Channel', 'Master')
-        ])
-        track_uri = response['TrackURI']
-        return re.match(r'^x-rincon-stream:', track_uri) is not None
+        return self.whats_playing() == PLAYING_LINE_IN
 
     @property
     def is_playing_tv(self):
         """bool: Is the playbar speaker input from TV?"""
-        response = self.avTransport.GetPositionInfo([
-            ('InstanceID', 0),
-            ('Channel', 'Master')
-        ])
-        track_uri = response['TrackURI']
-        return re.match(r'^x-sonos-htastream:', track_uri) is not None
-
-    @property
-    def is_playing_local_queue(self):
-        """bool: Is the speaker input from local queue?"""
-        media_info = self.avTransport.GetMediaInfo([("InstanceID", 0)])
-        current_uri = media_info["CurrentURI"]
-
-        return (current_uri.split(":")[0] == "x-rincon-queue" and
-                current_uri.split("#")[1] == "0")
+        return self.whats_playing() == PLAYING_TV
 
     def switch_to_tv(self):
         """Switch the playbar speaker's input to TV."""
