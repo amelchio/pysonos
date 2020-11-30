@@ -15,6 +15,7 @@ import logging
 
 import requests
 
+import json
 from xmltodict import parse
 
 from .. import discovery
@@ -448,7 +449,9 @@ class MusicService(object):
         self.service_id = data["Id"]
         # Auth_type can be 'Anonymous', 'UserId, 'DeviceLink' and 'AppLink'
         self.auth_type = data["Auth"]
-        self.presentation_map_uri = data.get("PresentationMapUri", None)
+        self.presentation_map_uri = data.get("PresentationMapUri")
+        self.manifest_uri = data.get("ManifestUri")
+        self.manifest_data = None
         self._search_prefix_map = None
         self.service_type = data["ServiceType"]
 
@@ -552,6 +555,9 @@ class MusicService(object):
                 # custom search categories, check whether it is
                 # implemented
                 result_value["StringsUri"] = presentation_element.get("Uri")
+            manifest_element = service.find("Manifest")
+            if manifest_element is not None:
+                result_value["ManifestUri"] = manifest_element.get("Uri")
             result_value["ServiceID"] = service.get("Id")
             # ServiceType is used elsewhere in Sonos, eg to form tokens,
             # and get_subscribed_music_services() below. It is also the
@@ -644,6 +650,16 @@ class MusicService(object):
                 "hosts": "search:host",
             }
             return self._search_prefix_map
+        if (
+            self.presentation_map_uri is None
+            and self.manifest_uri is not None
+            and self.manifest_data is None
+        ):
+            manifest = requests.get(self.manifest_uri, timeout=9)
+            self.manifest_data = json.loads(manifest.content)
+            pmap_element = self.manifest_data.get("presentationMap")
+            if pmap_element:
+                self.presentation_map_uri = pmap_element.get("uri")
         if self.presentation_map_uri is None:
             # Assume not searchable?
             return self._search_prefix_map
