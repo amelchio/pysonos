@@ -1598,9 +1598,23 @@ class SoCo(_SocoSingletonBase):
 
         return None
 
+    @staticmethod
+    def _tidal_uri(uri):
+        """str: The canonical Tidal URI."""
+        match = re.search(
+            r"https://tidal.*[:/](album|track|playlist)[:/]([\w-]+)", uri)
+        if match:
+            return "tidal:" + match.group(1) + ":" + match.group(2)
+
+        return None
+
     def is_spotify_uri(self, uri):
         """bool: Is the URI for Spotify."""
         return self._spotify_uri(uri) is not None
+
+    def is_tidal_uri(self, uri):
+        """bool: Is the URI for Tidal."""
+        return self._tidal_uri(uri) is not None
 
     @only_on_master
     def add_spotify_uri_to_queue(self, uri, position=0, as_next=False):
@@ -1677,6 +1691,71 @@ class SoCo(_SocoSingletonBase):
             item_class=spotify_magic[spotify_type]["class"],
             sn=service_no,
         )
+
+        response = self.avTransport.AddURIToQueue(
+            [
+                ("InstanceID", 0),
+                ("EnqueuedURI", enqueue_uri),
+                ("EnqueuedURIMetaData", metadata),
+                ("DesiredFirstTrackNumberEnqueued", position),
+                ("EnqueueAsNext", int(as_next)),
+            ]
+        )
+        qnumber = response["FirstTrackNumberEnqueued"]
+        return int(qnumber)
+
+    @only_on_master
+    def add_tidal_uri_to_queue(self, uri, position=0, as_next=False):
+        """Add a queueable item to the queue.
+
+        Args:
+            uri (str): A URI like `https://tidal.com/browse/album/157273956`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+
+        tidal_uri = self._tidal_uri(uri)
+
+        tidal_magic = {
+            "album": {
+                "prefix": "x-rincon-cpcontainer:1004206c",
+                "key": "00040000",
+                "class": "object.container.album.musicAlbum",
+            },
+            "track": {
+                "prefix": "",
+                "key": "00032020",
+                "class": "object.item.audioItem.musicTrack",
+            },
+            "playlist": {
+                "prefix": "x-rincon-cpcontainer:1006206c",
+                "key": "1006206c",
+                "class": "object.container.playlistContainer",
+            },
+        }
+        tidal_type = tidal_uri.split(":")[1]
+
+        encoded_uri = tidal_uri.replace("tidal:", "").replace(":", "%2f")
+        enqueue_uri = tidal_magic[tidal_type]["prefix"] + encoded_uri
+
+        metadata_template = ('<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
+                             '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
+                             '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
+                             'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
+                             'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
+                             'tricted="true"><upnp:class>{item_class}</upnp:cl'
+                             'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
+                             'onnetworks-com:metadata-1-0/">SA_RINCON44551_X_#'
+                             'Svc33551-0-Token</desc></item></DIDL-Lite>')
+
+        metadata = metadata_template.format(
+            item_id=tidal_magic[tidal_type]["key"] + encoded_uri,
+            item_class=tidal_magic[tidal_type]["class"])
 
         response = self.avTransport.AddURIToQueue(
             [
