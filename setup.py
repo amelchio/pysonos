@@ -13,12 +13,12 @@ class PyTest(TestCommand):
 
     def finalize_options(self):
         TestCommand.finalize_options(self)
-        # we don't run integration tests which need an actual Sonos device
+        # We don't run integration tests which need an actual Sonos device
         self.test_args = ["-m", "not integration"]
         self.test_suite = True
 
     def run_tests(self):
-        # import here, cause outside the eggs aren't loaded
+        # Import here, because outside the eggs aren't loaded
         import pytest
 
         errno = pytest.main(self.test_args)
@@ -26,7 +26,7 @@ class PyTest(TestCommand):
 
 
 src = io.open("pysonos/__init__.py", encoding="utf-8").read()
-metadata = dict(re.findall("__([a-z]+)__ = '([^']+)'", src))
+metadata = dict(re.findall('__([a-z]+)__ = "([^"]+)"', src))
 docstrings = re.findall('"""(.*?)"""', src, re.MULTILINE | re.DOTALL)
 
 NAME = "pysonos"
@@ -45,20 +45,23 @@ LICENSE = metadata["license"]
 DESCRIPTION = docstrings[0]
 
 CLASSIFIERS = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Home Automation",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: Multimedia :: Sound/Audio :: Players",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+PYTHON_REQUIRES = ">=3.7"
 
 with io.open("README.rst", encoding="utf-8") as file:
     LONG_DESCRIPTION = file.read()
@@ -82,4 +85,5 @@ setup(
     long_description=LONG_DESCRIPTION,
     cmdclass={"test": PyTest},
     classifiers=CLASSIFIERS,
+    python_requires=PYTHON_REQUIRES,
 )

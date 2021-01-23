@@ -3,10 +3,16 @@ from __future__ import unicode_literals
 
 import mock
 import pytest
+import requests_mock
 
 from pysonos import SoCo
 from pysonos.data_structures import DidlMusicTrack, to_didl_string
-from pysonos.exceptions import SoCoSlaveException, SoCoUPnPException
+from pysonos.exceptions import (
+    SoCoSlaveException,
+    SoCoUPnPException,
+    SoCoNotVisibleException,
+    NotSupportedException,
+)
 from pysonos.groups import ZoneGroup
 from pysonos.xml import XML
 
@@ -63,7 +69,8 @@ def moco_only_on_master():
         patch.stop()
 
 
-ZGS = """<ZoneGroupState>
+ZGS = (
+    """<ZoneGroupState>
       <ZoneGroups>
         <ZoneGroup Coordinator="RINCON_000XXX1400" ID="RINCON_000E5876A0E801400:210">
           <ZoneGroupMember
@@ -119,7 +126,8 @@ ZGS = """<ZoneGroupState>
               IdleState="1"
               MoreInfo=""/>
         </ZoneGroup>
-        <ZoneGroup Coordinator="RINCON_000E58A53FAE01400" ID="RINCON_000E58A53FAE01400:107">
+        <ZoneGroup Coordinator="RINCON_000E58A53FAE01400" """
+    """ID="RINCON_000E58A53FAE01400:107">
           <ZoneGroupMember
               UUID="RINCON_000E58A53FAE01400"
               Location="http://192.168.1.173:1400/xml/device_description.xml"
@@ -147,7 +155,8 @@ ZGS = """<ZoneGroupState>
               IdleState="1"
               MoreInfo=""/>
         </ZoneGroup>
-        <ZoneGroup Coordinator="RINCON_000E5884455C01400" ID="RINCON_000E5884455C01400:114">
+        <ZoneGroup Coordinator="RINCON_000E5884455C01400" """
+    """ID="RINCON_000E5884455C01400:114">
           <ZoneGroupMember
               UUID="RINCON_000E5884455C01400"
               Location="http://192.168.1.197:1400/xml/device_description.xml"
@@ -178,6 +187,8 @@ ZGS = """<ZoneGroupState>
       </ZoneGroups>
       <VanishedDevices></VanishedDevices>
     </ZoneGroupState>"""
+)
+
 
 
 @pytest.yield_fixture
@@ -375,13 +386,16 @@ class TestSoco:
                 <SCPDURL>/xml/GroupRenderingControl1.xml</SCPDURL>
               </service>
                 </serviceList>
-                <X_Rhapsody-Extension xmlns="http://www.real.com/rhapsody/xmlns/upnp-1-0">
-                  <deviceID>urn:rhapsody-real-com:device-id-1-0:sonos_1:RINCON_000E5884455C01400</deviceID>
+                <X_Rhapsody-Extension """
+        """xmlns="http://www.real.com/rhapsody/xmlns/upnp-1-0">
+                  <deviceID>urn:rhapsody-real-com:device-id-1-0:"""
+        """sonos_1:RINCON_000E5884455C01400</deviceID>
                     <deviceCapabilities>
                       <interactionPattern type="real-rhapsody-upnp-1-0"/>
                     </deviceCapabilities>
                 </X_Rhapsody-Extension>
-                <qq:X_QPlay_SoftwareCapability xmlns:qq="http://www.tencent.com">QPlay:2</qq:X_QPlay_SoftwareCapability>
+                <qq:X_QPlay_SoftwareCapability xmlns:qq="http://www.tencent.com">"""
+        """QPlay:2</qq:X_QPlay_SoftwareCapability>
                 <iconList>
                   <icon>
                     <mimetype>image/png</mimetype>
@@ -422,6 +436,8 @@ class TestSoco:
             ("Sonos Beam", True),
             ("Sonos Playbar", True),
             ("Sonos Playbase", True),
+            ("Sonos Arc", True),
+            ("Sonos Arc SL", True),
         ),
     )
     def test_soco_is_soundbar(self, moco, model_name):
@@ -563,7 +579,7 @@ class TestAVTransport:
             [("InstanceID", 0), ("NewPlayMode", "NORMAL")]
         )
 
-    def test_soco_cross_fade(self, moco):
+    def test_soco_cross_fade2(self, moco):
         moco.avTransport.GetCrossfadeMode.return_value = {"CrossfadeMode": "1"}
         assert moco.cross_fade
         moco.avTransport.GetCrossfadeMode.return_value = {"CrossfadeMode": "0"}
@@ -620,8 +636,11 @@ class TestAVTransport:
                 "x-rincon-mp3radio://archive.org/download/TenD2005-07-16t_64kb.mp3",
             ),
             (
-                "aac://icy-e-bz-04-cr.sharp-stream.com/magic1054.aac?amsparams=playerid:BMUK_tunein;skey:1483570441&awparams=loggedin:false",
-                "x-rincon-mp3radio://icy-e-bz-04-cr.sharp-stream.com/magic1054.aac?amsparams=playerid:BMUK_tunein;skey:1483570441&awparams=loggedin:false",
+                "aac://icy-e-bz-04-cr.sharp-stream.com/magic1054.aac?amsparams="
+                "playerid:BMUK_tunein;skey:1483570441&awparams=loggedin:false",
+                "x-rincon-mp3radio://icy-e-bz-04-cr.sharp-stream.com/magic1054.aac?"
+                "amsparams=playerid:BMUK_tunein;skey:1483570441&awparams=loggedin:"
+                "false",
             ),
         ],
     )
@@ -633,13 +652,19 @@ class TestAVTransport:
         moco.avTransport.reset_mock()
 
     def test_soco_play_uri_calls_play(self, moco):
-        uri = "http://archive.org/download/tend2005-07-16.flac16/tend2005-07-16t10wonderboy_64kb.mp3"
+        uri = (
+            "http://archive.org/download/tend2005-07-16.flac16/"
+            "tend2005-07-16t10wonderboy_64kb.mp3"
+        )
         moco.play_uri(uri)
 
         moco.avTransport.Play.assert_called_with([("InstanceID", 0), ("Speed", 1)])
 
     def test_soco_play_uri_with_title(self, moco):
-        uri = "http://archive.org/download/tend2005-07-16.flac16/tend2005-07-16t10wonderboy_64kb.mp3"
+        uri = (
+            "http://archive.org/download/tend2005-07-16.flac16/"
+            "tend2005-07-16t10wonderboy_64kb.mp3"
+        )
         moco.play_uri(uri, title="<Fast & Loose>")
 
         moco.avTransport.SetAVTransportURI.assert_called_with(
@@ -648,7 +673,15 @@ class TestAVTransport:
                 ("CurrentURI", uri),
                 (
                     "CurrentURIMetaData",
-                    '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="R:0/0/0" parentID="R:0/0" restricted="true"><dc:title>&lt;Fast &amp; Loose&gt;</dc:title><upnp:class>object.item.audioItem.audioBroadcast</upnp:class><desc id="cdudn" nameSpace="urn:schemas-rinconnetworks-com:metadata-1-0/">SA_RINCON65031_</desc></item></DIDL-Lite>',
+                    '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" '
+                    'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+                    'xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" '
+                    'xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/">'
+                    '<item id="R:0/0/0" parentID="R:0/0" restricted="true">'
+                    "<dc:title>&lt;Fast &amp; Loose&gt;</dc:title>"
+                    "<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>"
+                    '<desc id="cdudn" nameSpace="urn:schemas-rinconnetworks-com:'
+                    'metadata-1-0/">SA_RINCON65031_</desc></item></DIDL-Lite>',
                 ),
             ]
         )
@@ -711,7 +744,20 @@ class TestAVTransport:
 
     def test_soco_get_queue(self, moco):
         moco.contentDirectory.Browse.return_value = {
-            "Result": '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><item id="Q:0/1" parentID="Q:0" restricted="true"><res protocolInfo="fake.com-fake-direct:*:audio/mp3:*" duration="0:02:32">radea:Tra.12345678.mp3</res><upnp:albumArtURI>/getaa?r=1&amp;u=radea%3aTra.12345678.mp3</upnp:albumArtURI><dc:title>Item 1 Title</dc:title><upnp:class>object.item.audioItem.musicTrack</upnp:class><dc:creator>Item 1 Creator</dc:creator><upnp:album>Item 1 Album</upnp:album></item></DIDL-Lite>',
+            "Result": (
+                '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" '
+                'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+                'xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" '
+                'xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/">'
+                '<item id="Q:0/1" parentID="Q:0" restricted="true">'
+                '<res protocolInfo="fake.com-fake-direct:*:audio/mp3:*" '
+                'duration="0:02:32">radea:Tra.12345678.mp3</res>'
+                "<upnp:albumArtURI>/getaa?r=1&amp;u=radea%3aTra.12345678.mp3"
+                "</upnp:albumArtURI><dc:title>Item 1 Title</dc:title>"
+                "<upnp:class>object.item.audioItem.musicTrack</upnp:class>"
+                "<dc:creator>Item 1 Creator</dc:creator>"
+                "<upnp:album>Item 1 Album</upnp:album></item></DIDL-Lite>"
+            ),
             "NumberReturned": "1",
             "TotalMatches": "10",
             "UpdateID": "1",
@@ -734,7 +780,18 @@ class TestAVTransport:
     def test_soco_queue_size(self, moco):
         moco.contentDirectory.Browse.return_value = {
             "NumberReturned": "1",
-            "Result": '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"><container id="Q:0" parentID="Q:" restricted="true" childCount="384"><dc:title>Queue Instance 0</dc:title><upnp:class>object.container.playlistContainer</upnp:class><res protocolInfo="x-rincon-queue:*:*:*">x-rincon-queue:RINCON_00012345678901400#0</res></container></DIDL-Lite>',
+            "Result": (
+                '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" '
+                'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+                'xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" '
+                'xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/">'
+                '<container id="Q:0" parentID="Q:" restricted="true" childCount="384">'
+                "<dc:title>Queue Instance 0</dc:title><upnp:class>"
+                "object.container.playlistContainer</upnp:class>"
+                '<res protocolInfo="x-rincon-queue:*:*:*">'
+                "x-rincon-queue:RINCON_00012345678901400#0</res>"
+                "</container></DIDL-Lite>"
+            ),
             "TotalMatches": "1",
             "UpdateID": "1",
         }
@@ -907,7 +964,12 @@ class TestAVTransport:
 
         moco.contentDirectory.Browse.return_value = {
             "NumberReturned": "0",
-            "Result": '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"></DIDL-Lite>',
+            "Result": (
+                '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements/1.1/" '
+                'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+                'xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/" '
+                'xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/"></DIDL-Lite>'
+            ),
             "TotalMatches": "0",
             "UpdateID": update_id,
         }
@@ -988,7 +1050,7 @@ class TestAVTransport:
             "CurrentSleepTimerGeneration": "0",
         }
         result = moco.get_sleep_timer()
-        assert result == None
+        assert result is None
 
 
 class TestContentDirectory:
@@ -1095,6 +1157,79 @@ class TestRenderingControl:
             [("InstanceID", 0), ("Channel", "Master"), ("DesiredLoudness", "0")]
         )
 
+    def test_soco_trueplay(self, moco):
+        moco.renderingControl.GetRoomCalibrationStatus.return_value = {
+            "RoomCalibrationAvailable": "0",
+            "RoomCalibrationEnabled": "0",
+        }
+        assert moco.trueplay is None
+        moco.renderingControl.GetRoomCalibrationStatus.assert_called_with(
+            [("InstanceID", 0)]
+        )
+        moco.renderingControl.GetRoomCalibrationStatus.return_value = {
+            "RoomCalibrationAvailable": "1",
+            "RoomCalibrationEnabled": "1",
+        }
+        assert moco.trueplay
+        moco.renderingControl.GetRoomCalibrationStatus.assert_called_with(
+            [("InstanceID", 0)]
+        )
+        # Setter tests for 'is_visible' property, so this needs to be
+        # mocked.
+        with mock.patch(
+            "pysonos.SoCo.is_visible", new_callable=mock.PropertyMock
+        ) as mock_is_visible:
+            mock_is_visible.return_value = True
+            moco.trueplay = False
+            moco.renderingControl.SetRoomCalibrationStatus.assert_called_with(
+                [
+                    ("InstanceID", 0),
+                    ("RoomCalibrationEnabled", "0"),
+                ]
+            )
+            moco.trueplay = True
+            moco.renderingControl.SetRoomCalibrationStatus.assert_called_with(
+                [
+                    ("InstanceID", 0),
+                    ("RoomCalibrationEnabled", "1"),
+                ]
+            )
+            # Check for exception if attempt to set the property on a
+            # non-visible speaker.
+            mock_is_visible.return_value = False
+            with pytest.raises(SoCoNotVisibleException):
+                moco.trueplay = True
+
+    def test_soco_fixed_volume(self, moco):
+        moco.renderingControl.GetSupportsOutputFixed.return_value = {
+            "CurrentSupportsFixed": "1"
+        }
+        assert moco.supports_fixed_volume
+        moco.renderingControl.GetSupportsOutputFixed.assert_called_with(
+            [("InstanceID", 0)]
+        )
+        moco.renderingControl.GetSupportsOutputFixed.return_value = {
+            "CurrentSupportsFixed": "0"
+        }
+        assert not moco.supports_fixed_volume
+        moco.renderingControl.GetSupportsOutputFixed.assert_called_with(
+            [("InstanceID", 0)]
+        )
+        moco.renderingControl.GetOutputFixed.return_value = {"CurrentFixed": "1"}
+        assert moco.fixed_volume
+        moco.renderingControl.GetOutputFixed.assert_called_once_with(
+            [("InstanceID", 0)]
+        )
+        moco.fixed_volume = False
+        moco.renderingControl.SetOutputFixed.assert_called_once_with(
+            [("InstanceID", 0), ("DesiredFixed", "0")]
+        )
+        moco.renderingControl.SetOutputFixed.side_effect = SoCoUPnPException(
+            None, None, None
+        )
+        with pytest.raises(NotSupportedException):
+            moco.fixed_volume = True
+
     def test_soco_balance(self, moco):
         # GetVolume is called twice, once for each of the left
         # and right channels
@@ -1136,6 +1271,36 @@ class TestDeviceProperties:
             [("DesiredLEDState", "On")]
         )
 
+    def test_buttons_enabled(self, moco):
+        moco.deviceProperties.GetButtonLockState.return_value = {
+            "CurrentButtonLockState": "On"
+        }
+        assert not moco.buttons_enabled
+        moco.deviceProperties.GetButtonLockState.return_value = {
+            "CurrentButtonLockState": "Off"
+        }
+        assert moco.buttons_enabled
+        moco.deviceProperties.GetButtonLockState.assert_called_with()
+        # Setter tests for 'is_visible' property, so this needs to be
+        # mocked.
+        with mock.patch(
+            "pysonos.SoCo.is_visible", new_callable=mock.PropertyMock
+        ) as mock_is_visible:
+            mock_is_visible.return_value = True
+            moco.buttons_enabled = False
+            moco.deviceProperties.SetButtonLockState.assert_called_once_with(
+                [("DesiredButtonLockState", "On")]
+            )
+            moco.buttons_enabled = True
+            moco.deviceProperties.SetButtonLockState.assert_called_with(
+                [("DesiredButtonLockState", "Off")]
+            )
+            # Check for exception if attempt to set the property on a
+            # non-visible speaker.
+            mock_is_visible.return_value = False
+            with pytest.raises(SoCoNotVisibleException):
+                moco.buttons_enabled = True
+
     def test_soco_set_player_name(self, moco):
         moco.player_name = "μИⅠℂ☺ΔЄ💋"
         moco.deviceProperties.SetZoneAttributes.assert_called_once_with(
@@ -1145,6 +1310,64 @@ class TestDeviceProperties:
                 ("DesiredConfiguration", ""),
             ]
         )
+
+    def test_create_stereo_pair(self, moco):
+        """Tests for a well-formed call to create a stereo pair.
+
+        Creates a SoCo object for the slave (RH) speaker, and
+        checks for the correct call with the correct parameters.
+        """
+        moco2 = mock.Mock()
+        moco2.uid = "RINCON_000XXY1400"
+        moco.create_stereo_pair(moco2)
+        moco.deviceProperties.AddBondedZones.assert_called_once_with(
+            [("ChannelMapSet", "RINCON_000XXX1400:LF,LF;RINCON_000XXY1400:RF,RF")]
+        )
+
+    def test_separate_stereo_pair(self, moco):
+        """Tests for a well-formed call to separate a stereo pair."""
+        moco.separate_stereo_pair()
+        moco.deviceProperties.RemoveBondedZones.assert_called_once_with(
+            [("ChannelMapSet", ""), ("KeepGrouped", "0")]
+        )
+
+    def test_get_battery_info(self, moco):
+        url = "http://" + moco.ip_address + ":1400/status/batterystatus"
+
+        # A speaker that returns battery information
+        with requests_mock.Mocker() as m:
+            response_text = (
+                '<?xml version="1.0" ?>\n<?xml-stylesheet type="text/xsl"'
+                + 'href="/xml/review.xsl"?><ZPSupportInfo><LocalBatteryStatus>\n'
+                + '<Data name="Health">GREEN</Data>\n<Data name="Level">100</Data>\n'
+                + '<Data name="Temperature">NORMAL</Data>\n'
+                + '<Data name="PowerSource">SONOS_CHARGING_RING</Data>\n'
+                + "</LocalBatteryStatus></ZPSupportInfo>"
+            )
+            m.get(url, text=response_text)
+            assert moco.get_battery_info() == {
+                "Health": "GREEN",
+                "Level": 100,
+                "Temperature": "NORMAL",
+                "PowerSource": "SONOS_CHARGING_RING",
+            }
+
+        # A speaker that doesn't have battery information
+        with requests_mock.Mocker() as m:
+            response_text = (
+                '<?xml version="1.0" ?>\n'
+                + '<?xml-stylesheet type="text/xsl" href="/xml/review.xsl"?>'
+                + "<ZPSupportInfo></ZPSupportInfo>"
+            )
+            m.get(url, text=response_text)
+            with pytest.raises(NotSupportedException):
+                moco.get_battery_info()
+
+        # A network request that fails
+        with requests_mock.Mocker() as m:
+            m.get(url, status_code=404)
+            with pytest.raises(ConnectionError):
+                moco.get_battery_info()
 
 
 class TestZoneGroupTopology:

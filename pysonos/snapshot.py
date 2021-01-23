@@ -89,8 +89,8 @@ class Snapshot(object):
 
         Returns:
             bool: `True` if the device is a coordinator, `False` otherwise.
-                Useful for determining whether playing an alert on a device
-                will ungroup it.
+            Useful for determining whether playing an alert on a device
+            will ungroup it.
         """
         # get if device coordinator (or slave) True (or False)
         self.is_coordinator = self.device.is_coordinator
@@ -241,9 +241,7 @@ class Snapshot(object):
         # command to check, fixed volume always has volume set to 100.
         # So only checked fixed volume if volume is 100.
         if self.volume == 100:
-            fixed_vol = self.device.renderingControl.GetOutputFixed(
-                [("InstanceID", 0)]
-            )["CurrentFixed"]
+            fixed_vol = self.device.fixed_volume
         else:
             fixed_vol = False
 

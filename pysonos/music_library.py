@@ -19,6 +19,7 @@ from .data_structures import SearchResult, DidlResource, DidlObject, DidlMusicAl
 from .data_structures_entry import from_didl_string
 from .exceptions import SoCoUPnPException
 from .utils import url_escape_path, really_unicode, camel_to_underscore
+from .compat import quote_url
 
 _LOG = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class MusicLibrary(object):
             item.album_art_uri = self.build_album_art_full_uri(item.album_art_uri)
 
     def get_artists(self, *args, **kwargs):
-        """Convenience method for `get_music_library_formation`
+        """Convenience method for `get_music_library_information`
         with ``search_type='artists'``. For details of other arguments,
         see `that method
         <#soco.music_library.MusicLibrary.get_music_library_information>`_.
@@ -179,8 +180,7 @@ class MusicLibrary(object):
         args = tuple(["radio_shows"] + list(args))
         return self.get_music_library_information(*args, **kwargs)
 
-        # pylint: disable=too-many-locals, too-many-arguments,
-        # too-many-branches
+        # pylint: disable=too-many-locals, too-many-arguments, too-many-branches
 
     def get_music_library_information(
         self,
@@ -290,12 +290,17 @@ class MusicLibrary(object):
         search = self.SEARCH_TRANSLATION[search_type]
 
         # Add sub categories
-        if subcategories is not None:
+        # sub categories are not allowed when searching shares
+        if subcategories is not None and search_type != "share":
             for category in subcategories:
                 search += "/" + url_escape_path(really_unicode(category))
         # Add fuzzy search
         if search_term is not None:
-            search += ":" + url_escape_path(really_unicode(search_term))
+            if search_type == "share":
+                # Don't insert ":" and don't escape "/" (so can't use url_escape_path)
+                search += quote_url(really_unicode(search_term).encode("utf-8"))
+            else:
+                search += ":" + url_escape_path(really_unicode(search_term))
 
         item_list = []
         metadata = {"total_matches": 100000}
@@ -619,7 +624,7 @@ class MusicLibrary(object):
 
         Returns:
             list: The music library shares, which are strings of the form
-                ``'//hostname_or_IP/share_path'``.
+            ``'//hostname_or_IP/share_path'``.
         """
         response = self.contentDirectory.Browse(
             [

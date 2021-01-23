@@ -37,7 +37,7 @@ import warnings
 
 from .compat import with_metaclass
 from .exceptions import DIDLMetadataError
-from .utils import really_unicode
+from .utils import really_unicode, first_cap
 from .xml import XML, ns_tag
 from .data_structure_quirks import apply_resource_quirks
 
@@ -77,6 +77,88 @@ def to_didl_string(*args):
         return XML.tostring(didl)
     else:
         return XML.tostring(didl, encoding="unicode")
+
+
+def didl_class_to_soco_class(didl_class):
+    """Translate a DIDL-Lite class to the corresponding SoCo data structures class"""
+    # Certain music services has been observed to sub-class via a .# syntax
+    # instead of just . we simply replace it with the official syntax
+    didl_class = didl_class.replace(".#", ".")
+    didl_class = didl_class.replace("#", ".")
+
+    try:
+        cls = _DIDL_CLASS_TO_CLASS[didl_class]
+    except KeyError:
+        # Unknown class, automatically create subclass
+        new_class_name = form_name(didl_class)
+        base_class = didl_class_to_soco_class(".".join(didl_class.split(".")[:-1]))
+        cls = type(
+            new_class_name,
+            (base_class,),
+            {
+                "item_class": didl_class,
+                __doc__: "Class that represents a {}".format(didl_class),
+            },
+        )
+        _DIDL_CLASS_TO_CLASS[didl_class] = cls
+
+    return cls
+
+
+_OFFICIAL_CLASSES = {
+    "object",
+    "object.item",
+    "object.item.audioItem",
+    "object.item.audioItem.musicTrack",
+    "object.item.audioItem.audioBroadcast",
+    "object.item.audioItem.audioBook",
+    "object.container",
+    "object.container.person",
+    "object.container.person.musicArtist",
+    "object.container.playlistContainer",
+    "object.container.album",
+    "object.container.musicAlbum",
+    "object.container.genre",
+    "object.container.musicGenre",
+}
+
+
+def form_name(didl_class):
+    """Return an improvised name for vendor extended classes"""
+    if not didl_class.startswith("object."):
+        raise DIDLMetadataError("Unknown UPnP class: %s" % didl_class)
+
+    # We know that the string starts with "object." so -1 indexing is safe
+    parts = didl_class.split(".")
+    # If it is a Sonos favorite, form the name as the class component
+    # before with "Favorite" added. So:
+    # object.item.audioItem.audioBroadcast.sonos-favorite
+    # turns into
+    # DidlAudioBroadcastFavorite
+    if parts[-1] == "sonos-favorite" and len(parts) >= 2:
+        return "Didl" + first_cap(parts[-2]) + "Favorite"
+
+    # For any other class, for the name as the concatenation of all
+    # the class components that are not UPnP core classes. So:
+    # object.container.playlistContainer.sameArtist
+    # Turns into:
+    # DidlSameArtist
+    search_parts = parts[:]
+    new_parts = []
+    # Strip the components one by one and check whether the base is known
+    while search_parts:
+        new_parts.append(search_parts[-1])
+        search_parts = search_parts[:-1]
+        search_class = ".".join(search_parts)
+        if search_class in _OFFICIAL_CLASSES:
+            break
+
+    # For class path last parts that contain the word list, capitalize it
+    if new_parts[0].endswith("list"):
+        new_parts[0] = new_parts[0].replace("list", "List")
+    new_parts = reversed(new_parts)
+
+    return "Didl" + "".join(first_cap(s) for s in new_parts)
 
 
 ###############################################################################
@@ -176,10 +258,10 @@ class DidlResource(object):
             if result is not None:
                 try:
                     return int(result)
-                except ValueError:
+                except ValueError as error:
                     raise DIDLMetadataError(
                         "Could not convert {0} to an integer".format(name)
-                    )
+                    ) from error
             else:
                 return None
 
@@ -430,7 +512,7 @@ class DidlObject(with_metaclass(DidlMetaClass, object)):
         # does not use some of them.
 
         # pylint: disable=super-on-old-class
-        super(DidlObject, self).__init__()
+        super().__init__()
         self.title = title
         self.parent_id = parent_id
         self.item_id = item_id
@@ -742,7 +824,7 @@ class DidlObject(with_metaclass(DidlMetaClass, object)):
                 used for playing the item.
             protocol_info (str): Protocol info for the resource. If none is
                 given and the resource does not exist yet, a default protocol
-                info is constructed as '[uri prefix]:*:*:*'.
+                info is constructed as ``'[uri prefix]:*:*:*'``.
         """
         try:
             self.resources[resource_nr].uri = uri
@@ -880,7 +962,7 @@ class DidlFavorite(DidlItem):
     """Class that represents a Sonos favorite.
 
     Note that the favorite itself isn't playable in all cases, please use the
-    object returned by `favorite.reference` instead."""
+    object returned by :attr:`favorite.reference` instead."""
 
     # the DIDL Lite class for this object.
     item_class = "object.itemobject.item.sonos-favorite"
@@ -906,7 +988,6 @@ class DidlFavorite(DidlItem):
         # import happened at load time.
         global _FROM_DIDL_STRING_FUNCTION  # pylint: disable=global-statement
         if not _FROM_DIDL_STRING_FUNCTION:
-            # pylint: disable=import-outside-toplevel
             from . import data_structures_entry
 
             _FROM_DIDL_STRING_FUNCTION = data_structures_entry.from_didl_string
@@ -921,13 +1002,6 @@ class DidlFavorite(DidlItem):
     def reference(self, value):
         setattr(self, "resource_meta_data", to_didl_string(value))
         self.resources = value.resources
-
-
-class DidlLineInItem(DidlItem):
-
-    """Class that represents a Sonos Line-In."""
-
-    item_class = "object.item.audioItem.linein"
 
 
 ###############################################################################
@@ -992,7 +1066,7 @@ class DidlMusicAlbum(DidlAlbum):
     )
 
 
-class DidlMusicAlbumFavorite(DidlAlbum):
+class DidlMusicAlbumFavorite(DidlMusicAlbum):
 
     """Class that represents a Sonos favorite music library album.
 
@@ -1007,7 +1081,7 @@ class DidlMusicAlbumFavorite(DidlAlbum):
     tag = "item"
 
 
-class DidlMusicAlbumCompilation(DidlAlbum):
+class DidlMusicAlbumCompilation(DidlMusicAlbum):
 
     """Class that represents a Sonos favorite music library compilation.
 
@@ -1078,7 +1152,7 @@ class DidlPlaylistContainer(DidlContainer):
 
     """Class that represents a music library play list."""
 
-    #:
+    # (str) The DIDL Lite class for this object
     item_class = "object.container.playlistContainer"
     # Yes, really. Sonos uses the item tag, not the container tag. But
     # sometimes it uses the container tag, eg:
@@ -1165,13 +1239,6 @@ class DidlRadioShow(DidlContainer):
     # A radio show doesn't seem to have any special attributes
 
 
-class DidlPodcast(DidlContainer):
-    """Dummy class that represents a podcast container."""
-
-    # the DIDL Lite class for this object.
-    item_class = "object.container.podcast"
-
-
 ###############################################################################
 # SPECIAL LISTS                                                               #
 ###############################################################################
@@ -1194,7 +1261,7 @@ class ListOfMusicInfoItems(list):
     """
 
     def __init__(self, items, number_returned, total_matches, update_id):
-        super(ListOfMusicInfoItems, self).__init__(items)
+        super().__init__(items)
         self._metadata = {
             "item_list": list(items),
             "number_returned": number_returned,
@@ -1231,7 +1298,7 @@ class ListOfMusicInfoItems(list):
             warnings.warn(message, stacklevel=2)
             return self._metadata[key]
         else:
-            return super(ListOfMusicInfoItems, self).__getitem__(key)
+            return super().__getitem__(key)
 
     @property
     def number_returned(self):
@@ -1257,15 +1324,13 @@ class SearchResult(ListOfMusicInfoItems):
     """
 
     def __init__(self, items, search_type, number_returned, total_matches, update_id):
-        super(SearchResult, self).__init__(
-            items, number_returned, total_matches, update_id
-        )
+        super().__init__(items, number_returned, total_matches, update_id)
         self._metadata["search_type"] = search_type
 
     def __repr__(self):
         return "{0}(items={1}, search_type='{2}')".format(
             self.__class__.__name__,
-            super(SearchResult, self).__repr__(),
+            super().__repr__(),
             self.search_type,
         )
 
@@ -1282,5 +1347,5 @@ class Queue(ListOfMusicInfoItems):
     def __repr__(self):
         return "{0}(items={1})".format(
             self.__class__.__name__,
-            super(Queue, self).__repr__(),
+            super().__repr__(),
         )

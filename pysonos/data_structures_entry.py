@@ -8,7 +8,7 @@ from __future__ import absolute_import
 import logging
 
 from .xml import XML, ns_tag
-from .data_structures import _DIDL_CLASS_TO_CLASS
+from .data_structures import didl_class_to_soco_class
 from .exceptions import DIDLMetadataError
 from .compat import urlparse
 from .music_services.data_structures import get_class
@@ -36,18 +36,7 @@ def from_didl_string(string):
     for elt in root:
         if elt.tag.endswith("item") or elt.tag.endswith("container"):
             item_class = elt.findtext(ns_tag("upnp", "class"))
-
-            # In case this class has an # specified unofficial
-            # subclass, ignore it by stripping it from item_class
-            if ".#" in item_class:
-                item_class = item_class[: item_class.find(".#")]
-            if "#" in item_class:
-                item_class = item_class[: item_class.find("#")]
-
-            try:
-                cls = _DIDL_CLASS_TO_CLASS[item_class]
-            except KeyError:
-                raise DIDLMetadataError("Unknown UPnP class: %s" % item_class)
+            cls = didl_class_to_soco_class(item_class)
             item = cls.from_element(elt)
             item = attempt_datastructure_upgrade(item)
             items.append(item)
@@ -81,7 +70,7 @@ def attempt_datastructure_upgrade(didl_item):
         _LOG.debug("Upgrade not possible, no resources")
         return didl_item
 
-    if resource.uri.startswith("x-sonos-http"):
+    if resource.uri and resource.uri.startswith("x-sonos-http"):
         # Get data
         uri = resource.uri
         # Now we need to create a DIDL item id. It seems to be based on the uri

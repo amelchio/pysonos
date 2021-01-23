@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Disable while we have Python 2.x compatability
-# pylint: disable=useless-object-inheritance
+# pylint: disable=useless-object-inheritance, too-many-arguments
 
 """Data structures for music service items
 
@@ -203,7 +203,7 @@ class MetadataDictBase(object):
         for key in metadata_dict:
             # Check for invalid fields
             if key not in self._valid_fields:
-                message = '%s instantiated with invalid field "%s" and ' "value: %s"
+                message = '%s instantiated with invalid field "%s" and value: "%s"'
                 # Really wanted to raise exceptions here, but as it
                 # turns out I have already encountered invalid fields
                 # from music services.
@@ -221,9 +221,11 @@ class MetadataDictBase(object):
         """Return item from metadata in case of unknown attribute"""
         try:
             return self.metadata[key]
-        except KeyError:
+        except KeyError as error:
             message = 'Class {} has no attribute "{}"'
-            raise AttributeError(message.format(self.__class__.__name__, key))
+            raise AttributeError(
+                message.format(self.__class__.__name__, key)
+            ) from error
 
 
 class MusicServiceItem(MetadataDictBase):
@@ -263,7 +265,7 @@ class MusicServiceItem(MetadataDictBase):
             uri,
             music_service,
         )
-        super(MusicServiceItem, self).__init__(metadata_dict)
+        super().__init__(metadata_dict)
         self.item_id = item_id
         self.desc = desc
         self.resources = resources
