@@ -1592,7 +1592,7 @@ class SoCo(_SocoSingletonBase):
     def _spotify_uri(uri):
         """str: The canonical Spotify URI."""
         match = re.search(
-            r"spotify.*[:/](album|track|playlist)[:/](\w+)", uri)
+            r"spotify.*[:/](album|track|playlist|show|episode)[:/](\w+)", uri)
         if match:
             return "spotify:" + match.group(1) + ":" + match.group(2)
 
