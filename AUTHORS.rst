@@ -1,7 +1,7 @@
 Project Creator
 ===============
 
-SoCo was created in 2012 at Music Hack Day Sydney by Rahim Sonawalla.
+SoCo was created in 2012 at Music Hack Day Sydney by Rahim Sonawalla
 
 The pysonos fork was created in 2018 by Anders Melchiorsen.
 
