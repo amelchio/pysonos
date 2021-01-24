@@ -1790,6 +1790,10 @@ class SoCo(_SocoSingletonBase):
         """bool: Is the URI for Tidal."""
         return self._tidal_uri(uri) is not None
 
+    def is_service_uri(self, uri):
+        """bool: Is the URI for a music service."""
+        return self.is_spotify_uri(uri) or self.is_tidal_uri(uri)
+
     @only_on_master
     def add_spotify_uri_to_queue(self, uri, position=0, as_next=False):
         """Add a Spotify item to the queue.
@@ -1949,6 +1953,27 @@ class SoCo(_SocoSingletonBase):
         )
         qnumber = response["FirstTrackNumberEnqueued"]
         return int(qnumber)
+
+    @only_on_master
+    def add_service_uri_to_queue(self, uri, position=0, as_next=False):
+        """Add a Spotify/Tidal/... item to the queue.
+
+        Args:
+            uri (str): A URI like `spotify:album:6wiUBliPe76YAVpNEdidpY`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+        if self.is_spotify_uri(uri):
+            return self.add_spotify_uri_to_queue(uri, position, as_next)
+        elif self.is_tidal_uri(uri):
+            return self.add_tidal_uri_to_queue(uri, position, as_next)
+
+        raise SoCoException("Unsupported URI: " + uri)
 
     @only_on_master
     def add_to_queue(self, queueable_item, position=0, as_next=False):
