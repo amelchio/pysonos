@@ -1,9 +1,8 @@
-dist: focal
-
 language: python
 python:
   - "3.7"
   - "3.8"
+  - "3.9"
 
 cache:
   directories:
@@ -18,5 +17,3 @@ script:
   - flake8 pysonos
   - pylint pysonos
   - py.test pysonos .
-
-sudo: false
