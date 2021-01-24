@@ -1776,8 +1776,7 @@ class SoCo(_SocoSingletonBase):
     @staticmethod
     def _tidal_uri(uri):
         """str: The canonical Tidal URI."""
-        match = re.search(
-            r"https://tidal.*[:/](album|track|playlist)[:/]([\w-]+)", uri)
+        match = re.search(r"https://tidal.*[:/](album|track|playlist)[:/]([\w-]+)", uri)
         if match:
             return "tidal:" + match.group(1) + ":" + match.group(2)
 
@@ -1922,19 +1921,22 @@ class SoCo(_SocoSingletonBase):
         encoded_uri = tidal_uri.replace("tidal:", "").replace(":", "%2f")
         enqueue_uri = tidal_magic[tidal_type]["prefix"] + encoded_uri
 
-        metadata_template = ('<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
-                             '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
-                             '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
-                             'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
-                             'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
-                             'tricted="true"><upnp:class>{item_class}</upnp:cl'
-                             'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
-                             'onnetworks-com:metadata-1-0/">SA_RINCON44551_X_#'
-                             'Svc33551-0-Token</desc></item></DIDL-Lite>')
+        metadata_template = (
+            '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
+            '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
+            '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
+            'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
+            'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
+            'tricted="true"><upnp:class>{item_class}</upnp:cl'
+            'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
+            'onnetworks-com:metadata-1-0/">SA_RINCON44551_X_#'
+            "Svc33551-0-Token</desc></item></DIDL-Lite>"
+        )
 
         metadata = metadata_template.format(
             item_id=tidal_magic[tidal_type]["key"] + encoded_uri,
-            item_class=tidal_magic[tidal_type]["class"])
+            item_class=tidal_magic[tidal_type]["class"],
+        )
 
         response = self.avTransport.AddURIToQueue(
             [
