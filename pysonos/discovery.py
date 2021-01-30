@@ -25,7 +25,7 @@ class StoppableThread(threading.Thread):
     """ Thread class with a stop() method. """
 
     def __init__(self, target, args):
-        super().__init__(target=target, args=args)
+        super().__init__(target=target, args=args, daemon=True)
         self._stop_event = threading.Event()
         self.stop_lock = threading.Lock()
 
