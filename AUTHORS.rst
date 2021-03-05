@@ -1,15 +1,15 @@
 Project Creator
 ===============
+
 SoCo was created in 2012 at Music Hack Day Sydney by Rahim Sonawalla
+
+The pysonos fork was created in 2018 by Anders Melchiorsen.
 
 
 Maintainers
 ===========
 
-* Lawrence Akka
-* Stefan Kögl
-* Kenneth Nielsen
-* David Harding
+* Anders Melchiorsen
 
 
 Contributors
@@ -18,6 +18,7 @@ Contributors
 (alphabetical)
 
 * Petter Aas
+* Lawrence Akka
 * Murali Allada
 * Joel Björkman
 * Aaron Daubman
@@ -25,7 +26,9 @@ Contributors
 * David Harding
 * Jeff Hinrichs
 * Jeroen Idserda
+* Stefan Kögl
 * Todd Neal
+* Kenneth Nielsen
 * nixscripter
 * Kenneth Nielsen
 * Dave O'Connor
@@ -35,4 +38,3 @@ Contributors
 * Jason Ting
 * Peter Toft (pwt)
 * Scott G Waters
-

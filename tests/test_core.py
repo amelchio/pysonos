@@ -5,16 +5,16 @@ import mock
 import pytest
 import requests_mock
 
-from soco import SoCo
-from soco.data_structures import DidlMusicTrack, to_didl_string
-from soco.exceptions import (
+from pysonos import SoCo
+from pysonos.data_structures import DidlMusicTrack, to_didl_string
+from pysonos.exceptions import (
     SoCoSlaveException,
     SoCoUPnPException,
     SoCoNotVisibleException,
     NotSupportedException,
 )
-from soco.groups import ZoneGroup
-from soco.xml import XML
+from pysonos.groups import ZoneGroup
+from pysonos.xml import XML
 
 IP_ADDR = "192.168.1.101"
 
@@ -34,11 +34,11 @@ def moco():
         "ZoneGroupTopology",
         "GroupRenderingControl",
     )
-    patchers = [mock.patch("soco.core.{}".format(service)) for service in services]
+    patchers = [mock.patch("pysonos.core.{}".format(service)) for service in services]
     for patch in patchers:
         patch.start()
     with mock.patch(
-        "soco.SoCo.is_coordinator", new_callable=mock.PropertyMock
+        "pysonos.SoCo.is_coordinator", new_callable=mock.PropertyMock
     ) as is_coord:
         is_coord = True
         yield SoCo(IP_ADDR)
@@ -61,7 +61,7 @@ def moco_only_on_master():
         "ZoneGroupTopology",
         "GroupRenderingControl",
     )
-    patchers = [mock.patch("soco.core.{}".format(service)) for service in services]
+    patchers = [mock.patch("pysonos.core.{}".format(service)) for service in services]
     for patch in patchers:
         patch.start()
     yield SoCo(IP_ADDR)
@@ -444,7 +444,7 @@ class TestSoco:
         moco.speaker_info["model_name"] = model_name[0]
         assert moco.is_soundbar == model_name[1]
 
-    @mock.patch("soco.core.requests")
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize("refresh", [None, False, True])
     def test_soco_get_speaker_info_speaker_not_set_refresh(
         self, mocr, moco_zgs, refresh
@@ -484,7 +484,7 @@ class TestSoco:
         }
         assert should == res
 
-    @mock.patch("soco.core.requests")
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize("refresh", [None, False])
     def test_soco_get_speaker_info_speaker_set_no_refresh(
         self, mocr, moco_zgs, refresh
@@ -508,9 +508,9 @@ class TestSoco:
         # no network request performed
         assert not mocr.get.called
 
-    @mock.patch("soco.core.requests")
+    @mock.patch("pysonos.core.requests")
     @pytest.mark.parametrize("should", [{}, {"info": "yes"}])
-    def test_soco_get_speaker_info_speaker_set_refresh(self, mocr, moco_zgs, should):
+    def test_soco_get_speaker_info_speaker_set_no_refresh(self, mocr, moco_zgs, should):
         """Internal speaker_info not set/set; Refresh True.
 
         => should update
@@ -1176,7 +1176,7 @@ class TestRenderingControl:
         # Setter tests for 'is_visible' property, so this needs to be
         # mocked.
         with mock.patch(
-            "soco.SoCo.is_visible", new_callable=mock.PropertyMock
+            "pysonos.SoCo.is_visible", new_callable=mock.PropertyMock
         ) as mock_is_visible:
             mock_is_visible.return_value = True
             moco.trueplay = False
@@ -1283,7 +1283,7 @@ class TestDeviceProperties:
         # Setter tests for 'is_visible' property, so this needs to be
         # mocked.
         with mock.patch(
-            "soco.SoCo.is_visible", new_callable=mock.PropertyMock
+            "pysonos.SoCo.is_visible", new_callable=mock.PropertyMock
         ) as mock_is_visible:
             mock_is_visible.return_value = True
             moco.buttons_enabled = False
@@ -1477,7 +1477,7 @@ class TestZoneGroupTopology:
 
 def test_only_on_master_true(moco_only_on_master):
     with mock.patch(
-        "soco.SoCo.is_coordinator", new_callable=mock.PropertyMock
+        "pysonos.SoCo.is_coordinator", new_callable=mock.PropertyMock
     ) as is_coord:
         is_coord.return_value = True
         moco_only_on_master.play()
@@ -1486,7 +1486,7 @@ def test_only_on_master_true(moco_only_on_master):
 
 def test_not_on_master_false(moco_only_on_master):
     with mock.patch(
-        "soco.SoCo.is_coordinator", new_callable=mock.PropertyMock
+        "pysonos.SoCo.is_coordinator", new_callable=mock.PropertyMock
     ) as is_coord:
         is_coord.return_value = False
         with pytest.raises(SoCoSlaveException):

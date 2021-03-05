@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 
 import pytest
 
-from soco.exceptions import SoCoUPnPException
-from soco.services import Service, Action, Argument, Vartype
+from pysonos.exceptions import SoCoUPnPException
+from pysonos.services import Service, Action, Argument, Vartype
 
 try:
     from unittest import mock
@@ -249,6 +249,7 @@ def test_send_command(service):
             "http://192.168.1.101:1400/Service/Control",
             headers=mock.ANY,
             data=DUMMY_VALID_ACTION.encode("utf-8"),
+            timeout=20,
         )
         # Now the cache should be primed, so try it again
         fake_post.reset_mock()

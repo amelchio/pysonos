@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 
-from soco.alarms import is_valid_recurrence
+from pysonos.alarms import is_valid_recurrence
 
 
 def test_recurrence():

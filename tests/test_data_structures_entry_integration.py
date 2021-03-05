@@ -2,8 +2,8 @@
 
 import pytest
 
-from soco.data_structures_entry import from_didl_string
-from soco.data_structures import (
+from pysonos.data_structures_entry import from_didl_string
+from pysonos.data_structures import (
     DidlMusicTrack,
     DidlMusicArtist,
     DidlMusicGenre,

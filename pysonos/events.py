@@ -116,7 +116,7 @@ class EventNotifyHandler(BaseHTTPRequestHandler, EventNotifyHandlerBase):
 
     # pylint: disable=no-self-use, missing-docstring
     def log_event(self, seq, service_id, timestamp):
-        log.info(
+        log.debug(
             "Event %s received for %s service on thread %s at %s",
             seq,
             service_id,
@@ -151,7 +151,7 @@ class EventServerThread(threading.Thread):
         Handling of requests is delegated to an instance of the
         `EventNotifyHandler` class.
         """
-        log.info("Event listener running on %s", self.server.server_address)
+        log.debug("Event listener running on %s", self.server.server_address)
         # Listen for events until told to stop
         while not self.stop_flag.is_set():
             self.server.handle_request()
@@ -235,7 +235,7 @@ class EventListener(EventListenerBase):
         self._listener_thread.join(1)
         # check if join timed out and issue a warning if it did
         if self._listener_thread.is_alive():
-            log.warning("Event Listener did not shutdown gracefully.")
+            log.debug("Event Listener did not shutdown gracefully.")
 
 
 class Subscription(SubscriptionBase):
@@ -389,8 +389,18 @@ class Subscription(SubscriptionBase):
                 of response headers as its only parameter.
 
         """
-        response = requests.request(method, url, headers=headers)
-        response.raise_for_status()
+        response = None
+        try:
+            response = requests.request(method, url, headers=headers, timeout=3)
+        except requests.exceptions.RequestException:
+            if method != "UNSUBSCRIBE":
+                raise
+
+        # Ignore "412 Client Error: Precondition Failed for url:"
+        # from rebooted speakers.
+        if response and response.status_code != 412:
+            response.raise_for_status()
+
         if success:
             success(response.headers)
 

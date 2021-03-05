@@ -43,7 +43,7 @@ import requests
 from .cache import Cache
 from . import events
 from . import config
-from .exceptions import SoCoUPnPException, UnknownSoCoException
+from .exceptions import SoCoException, SoCoUPnPException, UnknownSoCoException
 from .utils import prettify
 from .xml import XML, illegal_xml_re
 
@@ -475,15 +475,22 @@ class Service(object):
             return result
         # Cache miss, so go ahead and make a network call
         headers, body = self.build_command(action, args)
-        log.info("Sending %s %s to %s", action, args, self.soco.ip_address)
+        log.debug("Sending %s %s to %s", action, args, self.soco.ip_address)
         log.debug("Sending %s, %s", headers, prettify(body))
         # Convert the body to bytes, and send it.
-        response = requests.post(
-            self.base_url + self.control_url, headers=headers, data=body.encode("utf-8")
-        )
+        try:
+            response = requests.post(
+                self.base_url + self.control_url,
+                headers=headers,
+                data=body.encode("utf-8"),
+                timeout=20,
+            )
+        except requests.exceptions.RequestException as ex:
+            raise SoCoException("Connection error: " + str(ex)) from ex
+
         log.debug("Received %s, %s", response.headers, response.text)
         status = response.status_code
-        log.info("Received status %s from %s", status, self.soco.ip_address)
+        log.debug("Received status %s from %s", status, self.soco.ip_address)
         if status == 200:
             # The response is good. Get the output params, and return them.
             # NB an empty dict is a valid result. It just means that no
@@ -686,7 +693,7 @@ class Service(object):
         ns = "{urn:schemas-upnp-org:service-1-0}"
         # get the scpd body as bytes, and feed directly to elementtree
         # which likes to receive bytes
-        scpd_body = requests.get(self.base_url + self.scpd_url).content
+        scpd_body = requests.get(self.base_url + self.scpd_url, timeout=10).content
         tree = XML.fromstring(scpd_body)
         # parse the state variables to get the relevant variable types
         vartypes = {}
@@ -697,9 +704,13 @@ class Service(object):
                 name = state.findtext("{}name".format(ns))
                 datatype = state.findtext("{}dataType".format(ns))
                 default = state.findtext("{}defaultValue".format(ns))
-                value_list_elt = state.find("{}allowedValueList".format(ns)) or ()
+                value_list_elt = state.find("{}allowedValueList".format(ns))
+                if value_list_elt is None:
+                    value_list_elt = ()
                 value_list = [item.text for item in value_list_elt] or None
-                value_range_elt = state.find("{}allowedValueRange".format(ns)) or ()
+                value_range_elt = state.find("{}allowedValueRange".format(ns))
+                if value_range_elt is None:
+                    value_range_elt = ()
                 value_range = [item.text for item in value_range_elt] or None
                 vartypes[name] = Vartype(datatype, default, value_list, value_range)
         # find all the actions
@@ -746,7 +757,7 @@ class Service(object):
 
         # pylint: disable=invalid-name
         ns = "{urn:schemas-upnp-org:service-1-0}"
-        scpd_body = requests.get(self.base_url + self.scpd_url).text
+        scpd_body = requests.get(self.base_url + self.scpd_url, timeout=10).text
         tree = XML.fromstring(scpd_body.encode("utf-8"))
         # parse the state variables to get the relevant variable types
         statevars = tree.findall("{}stateVariable".format(ns))

@@ -7,8 +7,8 @@ from __future__ import unicode_literals, print_function
 from collections import OrderedDict
 import pytest
 from mock import PropertyMock, Mock, patch
-from soco.music_services import data_structures
-from soco.data_structures import DidlResource
+from pysonos.music_services import data_structures
+from pysonos.data_structures import DidlResource
 
 # DATA
 RESPONSES = []
@@ -260,7 +260,7 @@ class TestMetadataDictBase(object):
 class TestMusicServiceItem(object):
     """Test the MusicServiceItem class"""
 
-    @patch("soco.music_services.data_structures.MetadataDictBase.__init__")
+    @patch("pysonos.music_services.data_structures.MetadataDictBase.__init__")
     def test_init(self, metadata_dict_base_init):
         """Test the __init__ method"""
         kwargs = {
@@ -281,9 +281,9 @@ class TestMusicServiceItem(object):
         for arg_name, arg_value in kwargs.items():
             assert getattr(music_service_item, arg_name) == arg_value
 
-    @patch("soco.music_services.data_structures.MusicServiceItem.__init__")
-    @patch("soco.music_services.data_structures.form_uri")
-    @patch("soco.music_services.data_structures.DidlResource")
+    @patch("pysonos.music_services.data_structures.MusicServiceItem.__init__")
+    @patch("pysonos.music_services.data_structures.form_uri")
+    @patch("pysonos.music_services.data_structures.DidlResource")
     def test_from_music_service(self, didl_resource, form_uri, music_service_init):
         """Test th from music service class method"""
         # Setup mock music service with mocked desc property
@@ -321,7 +321,7 @@ class TestMusicServiceItem(object):
         )
         assert item.__str__() == '<MusicServiceItem title="fake title">'
 
-    @patch("soco.music_services.data_structures.DidlItem.to_element")
+    @patch("pysonos.music_services.data_structures.DidlItem.to_element")
     def test_to_element(self, didl_item_to_element):
         """Test the to_element method"""
         didl_item_to_element.return_value = object()

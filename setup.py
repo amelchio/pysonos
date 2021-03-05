@@ -25,16 +25,16 @@ class PyTest(TestCommand):
         sys.exit(errno)
 
 
-src = io.open("soco/__init__.py", encoding="utf-8").read()
+src = io.open("pysonos/__init__.py", encoding="utf-8").read()
 metadata = dict(re.findall('__([a-z]+)__ = "([^"]+)"', src))
 docstrings = re.findall('"""(.*?)"""', src, re.MULTILINE | re.DOTALL)
 
-NAME = "soco"
+NAME = "pysonos"
 
 PACKAGES = (
-    "soco",
-    "soco.plugins",
-    "soco.music_services",
+    "pysonos",
+    "pysonos.plugins",
+    "pysonos.music_services",
 )
 
 TEST_REQUIREMENTS = list(open("requirements-dev.txt"))
@@ -49,8 +49,6 @@ CLASSIFIERS = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.5",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -63,7 +61,7 @@ CLASSIFIERS = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-PYTHON_REQUIRES = ">=3.5"
+PYTHON_REQUIRES = ">=3.7"
 
 with io.open("README.rst", encoding="utf-8") as file:
     LONG_DESCRIPTION = file.read()

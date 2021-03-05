@@ -3,7 +3,7 @@
 
 from __future__ import unicode_literals
 
-from soco.utils import deprecated
+from pysonos.utils import deprecated
 
 
 # Deprecation decorator

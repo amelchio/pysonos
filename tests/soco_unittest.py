@@ -21,7 +21,7 @@ import unittest
 
 import pytest
 
-import soco
+import pysonos
 
 SOCO = None
 pytestmark = pytest.mark.integration
@@ -38,7 +38,7 @@ def init(**kwargs):
     """Initialize variables for the unittests that are only known at run
     time."""
     global SOCO  # pylint: disable-msg=W0603
-    SOCO = soco.SoCo(kwargs["ip"])
+    SOCO = pysonos.SoCo(kwargs["ip"])
 
     if len(SOCO.get_queue()) == 0:
         raise SoCoUnitTestInitError(

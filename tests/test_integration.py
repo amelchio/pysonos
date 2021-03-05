@@ -22,14 +22,14 @@ import time
 
 import pytest
 
-import soco as soco_module
-from soco.data_structures import (
+import pysonos as pysonos_module
+from pysonos.data_structures import (
     DidlMusicTrack,
     DidlPlaylistContainer,
     SearchResult,
 )
-from soco.music_library import MusicLibrary
-from soco.exceptions import SoCoUPnPException
+from pysonos.music_library import MusicLibrary
+from pysonos.exceptions import SoCoUPnPException
 
 # Mark all tests in this module with the pytest custom "integration" marker so
 # they can be selected or deselected as a whole, eg:
@@ -47,7 +47,7 @@ def soco(request):
     ip = request.config.option.IP
     if ip is None:
         pytest.fail("No ip address specified. Use the --ip option.")
-    soco_instance = soco_module.SoCo(ip)
+    soco_instance = pysonos_module.SoCo(ip)
     # Check the device is playing and has items in the queue
     if len(soco_instance.get_queue()) == 0:
         pytest.fail(

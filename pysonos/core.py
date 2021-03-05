@@ -12,6 +12,7 @@ import re
 import socket
 from functools import wraps
 from xml.sax.saxutils import escape
+import xml.etree.ElementTree
 from xml.parsers.expat import ExpatError
 import warnings
 import xmltodict
@@ -32,6 +33,7 @@ from .data_structures import (
 from .cache import Cache
 from .data_structures_entry import from_didl_string
 from .exceptions import (
+    SoCoException,
     SoCoSlaveException,
     SoCoUPnPException,
     NotSupportedException,
@@ -451,7 +453,7 @@ class SoCo(_SocoSingletonBase):
     def play_mode(self, playmode):
         """Set the speaker's mode."""
         playmode = playmode.upper()
-        if playmode not in PLAY_MODES:
+        if playmode not in PLAY_MODES.keys():
             raise KeyError("'%s' is not a valid play mode" % playmode)
 
         self.avTransport.SetPlayMode([("InstanceID", 0), ("NewPlayMode", playmode)])
@@ -1052,6 +1054,13 @@ class SoCo(_SocoSingletonBase):
             raise NotSupportedException from error
 
     def _parse_zone_group_state(self):
+        """Parse zone group state, catching some exceptions."""
+        try:
+            self.__parse_zone_group_state_wrapped()
+        except xml.etree.ElementTree.ParseError as ex:
+            raise SoCoException("Parse error: " + str(ex)) from ex
+
+    def __parse_zone_group_state_wrapped(self):
         """The Zone Group State contains a lot of useful information.
 
         Retrieve and parse it, and populate the relevant properties.
@@ -1138,8 +1147,12 @@ class SoCo(_SocoSingletonBase):
         # and the set of all members
         self._all_zones.clear()
         self._visible_zones.clear()
+        # The response is wrapped in ZoneGroups from Sonos 10.1
+        zonegroups = tree.find("ZoneGroups")
+        if zonegroups is not None:
+            tree = zonegroups
         # Loop over each ZoneGroup Element
-        for group_element in tree.find("ZoneGroups").findall("ZoneGroup"):
+        for group_element in tree.findall("ZoneGroup"):
             coordinator_uid = group_element.attrib["Coordinator"]
             group_uid = group_element.attrib["ID"]
             group_coordinator = None
@@ -1435,6 +1448,7 @@ class SoCo(_SocoSingletonBase):
             ]
         )
 
+    # pylint: disable=too-many-branches
     def get_current_track_info(self):
         """Get information about the currently playing track.
 
@@ -1489,6 +1503,16 @@ class SoCo(_SocoSingletonBase):
             if index > -1:
                 track["artist"] = trackinfo[:index]
                 track["title"] = trackinfo[index + 3 :]
+            elif trackinfo.startswith("BR P|TYPE=SNG"):
+                # Tagging used by e.g. SiriusXM:
+                # "BR P|TYPE=SNG|TITLE 7.15.17 LA|ARTIST Eagles|ALBUM "
+                tags = dict([p.split(" ", 1) for p in trackinfo.split("|") if " " in p])
+                if tags.get("TITLE"):
+                    track["title"] = tags["TITLE"]
+                if tags.get("ARTIST"):
+                    track["artist"] = tags["ARTIST"]
+                if tags.get("ALBUM"):
+                    track["album"] = tags["ALBUM"]
             else:
                 # Might find some kind of title anyway in metadata
                 track["title"] = metadata.findtext(
@@ -1529,6 +1553,29 @@ class SoCo(_SocoSingletonBase):
                 )
 
         return track
+
+    def get_current_media_info(self):
+        """Get information about the currently playing media.
+
+        Returns:
+            dict: A dictionary containing information about the currently
+            playing media: uri, channel.
+
+        """
+        response = self.avTransport.GetMediaInfo([("InstanceID", 0)])
+        media = {"uri": "", "channel": ""}
+
+        media["uri"] = response["CurrentURI"]
+
+        metadata = response.get("CurrentURIMetaData")
+        if metadata:
+            metadata = XML.fromstring(really_utf8(metadata))
+            md_title = metadata.findtext(".//{http://purl.org/dc/elements/1.1/}title")
+
+            if md_title:
+                media["channel"] = md_title
+
+        return media
 
     def get_speaker_info(self, refresh=False, timeout=None):
         """Get information about the Sonos speaker.
@@ -1716,6 +1763,217 @@ class SoCo(_SocoSingletonBase):
         res = [DidlResource(uri=uri, protocol_info="x-rincon-playlist:*:*:*")]
         item = DidlObject(resources=res, title="", parent_id="", item_id="")
         return self.add_to_queue(item, position, as_next)
+
+    @staticmethod
+    def _spotify_uri(uri):
+        """str: The canonical Spotify URI."""
+        match = re.search(r"spotify.*[:/](album|track|playlist)[:/](\w+)", uri)
+        if match:
+            return "spotify:" + match.group(1) + ":" + match.group(2)
+
+        return None
+
+    @staticmethod
+    def _tidal_uri(uri):
+        """str: The canonical Tidal URI."""
+        match = re.search(r"https://tidal.*[:/](album|track|playlist)[:/]([\w-]+)", uri)
+        if match:
+            return "tidal:" + match.group(1) + ":" + match.group(2)
+
+        return None
+
+    def is_spotify_uri(self, uri):
+        """bool: Is the URI for Spotify."""
+        return self._spotify_uri(uri) is not None
+
+    def is_tidal_uri(self, uri):
+        """bool: Is the URI for Tidal."""
+        return self._tidal_uri(uri) is not None
+
+    def is_service_uri(self, uri):
+        """bool: Is the URI for a music service."""
+        return self.is_spotify_uri(uri) or self.is_tidal_uri(uri)
+
+    @only_on_master
+    def add_spotify_uri_to_queue(self, uri, position=0, as_next=False):
+        """Add a Spotify item to the queue.
+
+        Args:
+            uri (str): A URI like `spotify:album:6wiUBliPe76YAVpNEdidpY`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+
+        spotify_services = (
+            2311,  # Global
+            3079,  # US
+        )
+
+        for service_no in spotify_services:
+            try:
+                return self._add_spotify_uri_to_queue_with_service(
+                    uri, service_no, position, as_next
+                )
+            except SoCoUPnPException as err:
+                exception = err
+                if err.error_code != "800":
+                    break
+
+        raise exception
+
+    @only_on_master
+    def _add_spotify_uri_to_queue_with_service(
+        self, uri, service_no, position=0, as_next=False
+    ):
+        """Helper for add_spotify_uri_to_queue."""
+
+        spotify_uri = self._spotify_uri(uri)
+
+        spotify_magic = {
+            "album": {
+                "prefix": "x-rincon-cpcontainer:1004206c",
+                "key": "1004206c",
+                "class": "object.container.album.musicAlbum",
+            },
+            "track": {
+                "prefix": "",
+                "key": "00032020",
+                "class": "object.item.audioItem.musicTrack",
+            },
+            "playlist": {
+                "prefix": "x-rincon-cpcontainer:1006206c",
+                "key": "1006206c",
+                "class": "object.container.playlistContainer",
+            },
+        }
+        spotify_type = spotify_uri.split(":")[1]
+
+        encoded_uri = spotify_uri.replace(":", "%3a")
+        enqueue_uri = spotify_magic[spotify_type]["prefix"] + encoded_uri
+
+        metadata_template = (
+            '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
+            '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
+            '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
+            'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
+            'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
+            'tricted="true"><upnp:class>{item_class}</upnp:cl'
+            'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
+            'onnetworks-com:metadata-1-0/">SA_RINCON{sn}_X_#S'
+            "vc{sn}-0-Token</desc></item></DIDL-Lite>"
+        )
+
+        metadata = metadata_template.format(
+            item_id=spotify_magic[spotify_type]["key"] + encoded_uri,
+            item_class=spotify_magic[spotify_type]["class"],
+            sn=service_no,
+        )
+
+        response = self.avTransport.AddURIToQueue(
+            [
+                ("InstanceID", 0),
+                ("EnqueuedURI", enqueue_uri),
+                ("EnqueuedURIMetaData", metadata),
+                ("DesiredFirstTrackNumberEnqueued", position),
+                ("EnqueueAsNext", int(as_next)),
+            ]
+        )
+        qnumber = response["FirstTrackNumberEnqueued"]
+        return int(qnumber)
+
+    @only_on_master
+    def add_tidal_uri_to_queue(self, uri, position=0, as_next=False):
+        """Add a queueable item to the queue.
+
+        Args:
+            uri (str): A URI like `https://tidal.com/browse/album/157273956`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+
+        tidal_uri = self._tidal_uri(uri)
+
+        tidal_magic = {
+            "album": {
+                "prefix": "x-rincon-cpcontainer:1004206c",
+                "key": "00040000",
+                "class": "object.container.album.musicAlbum",
+            },
+            "track": {
+                "prefix": "",
+                "key": "00032020",
+                "class": "object.item.audioItem.musicTrack",
+            },
+            "playlist": {
+                "prefix": "x-rincon-cpcontainer:1006206c",
+                "key": "1006206c",
+                "class": "object.container.playlistContainer",
+            },
+        }
+        tidal_type = tidal_uri.split(":")[1]
+
+        encoded_uri = tidal_uri.replace("tidal:", "").replace(":", "%2f")
+        enqueue_uri = tidal_magic[tidal_type]["prefix"] + encoded_uri
+
+        metadata_template = (
+            '<DIDL-Lite xmlns:dc="http://purl.org/dc/elements'
+            '/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata'
+            '-1-0/upnp/" xmlns:r="urn:schemas-rinconnetworks-'
+            'com:metadata-1-0/" xmlns="urn:schemas-upnp-org:m'
+            'etadata-1-0/DIDL-Lite/"><item id="{item_id}" res'
+            'tricted="true"><upnp:class>{item_class}</upnp:cl'
+            'ass><desc id="cdudn" nameSpace="urn:schemas-rinc'
+            'onnetworks-com:metadata-1-0/">SA_RINCON44551_X_#'
+            "Svc33551-0-Token</desc></item></DIDL-Lite>"
+        )
+
+        metadata = metadata_template.format(
+            item_id=tidal_magic[tidal_type]["key"] + encoded_uri,
+            item_class=tidal_magic[tidal_type]["class"],
+        )
+
+        response = self.avTransport.AddURIToQueue(
+            [
+                ("InstanceID", 0),
+                ("EnqueuedURI", enqueue_uri),
+                ("EnqueuedURIMetaData", metadata),
+                ("DesiredFirstTrackNumberEnqueued", position),
+                ("EnqueueAsNext", int(as_next)),
+            ]
+        )
+        qnumber = response["FirstTrackNumberEnqueued"]
+        return int(qnumber)
+
+    @only_on_master
+    def add_service_uri_to_queue(self, uri, position=0, as_next=False):
+        """Add a Spotify/Tidal/... item to the queue.
+
+        Args:
+            uri (str): A URI like `spotify:album:6wiUBliPe76YAVpNEdidpY`.
+            position (int): The index (1-based) at which the URI should be
+                added. Default is 0 (add URI at the end of the queue).
+            as_next (bool): Whether this URI should be played as the next
+                track in shuffle mode. This only works if `play_mode=SHUFFLE`.
+
+        Returns:
+            int: The index of the new item in the queue.
+        """
+        if self.is_spotify_uri(uri):
+            return self.add_spotify_uri_to_queue(uri, position, as_next)
+        elif self.is_tidal_uri(uri):
+            return self.add_tidal_uri_to_queue(uri, position, as_next)
+
+        raise SoCoException("Unsupported URI: " + uri)
 
     @only_on_master
     def add_to_queue(self, queueable_item, position=0, as_next=False):
@@ -2398,15 +2656,17 @@ NS = {
     "": "{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}",
 }
 
-# Valid play modes
-PLAY_MODES = (
-    "NORMAL",
-    "SHUFFLE_NOREPEAT",
-    "SHUFFLE",
-    "REPEAT_ALL",
-    "SHUFFLE_REPEAT_ONE",
-    "REPEAT_ONE",
-)
+# Valid play modes and their meanings as (shuffle, repeat) tuples
+PLAY_MODES = {
+    "NORMAL": (False, False),
+    "SHUFFLE_NOREPEAT": (True, False),
+    "SHUFFLE": (True, True),
+    "REPEAT_ALL": (False, True),
+    "SHUFFLE_REPEAT_ONE": (True, "ONE"),
+    "REPEAT_ONE": (False, "ONE"),
+}
+# Inverse mapping of PLAY_MODES
+PLAY_MODE_BY_MEANING = {meaning: mode for mode, meaning in PLAY_MODES.items()}
 
 # Music source names
 MUSIC_SRC_LIBRARY = "LIBRARY"

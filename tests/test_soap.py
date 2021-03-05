@@ -3,8 +3,8 @@
 
 from __future__ import unicode_literals
 
-from soco.soap import SoapMessage
-from soco.xml import XML
+from pysonos.soap import SoapMessage
+from pysonos.xml import XML
 
 try:
     # New in Python 3.3
