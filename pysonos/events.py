@@ -419,7 +419,7 @@ class Subscription(SubscriptionBase):
                   Exception. This method needs to be threadsafe.
                 * If the strict flag was set to True (the default), reraises
                   the Exception or, if the strict flag was set to False, logs
-                  the Exception instead.
+                  the Exception instead and returns None.
 
             * Calls the wrapped methods with a threading.Lock, to prevent race
               conditions (e.g. to prevent unsubscribe and autorenew being
@@ -471,6 +471,8 @@ class Subscription(SubscriptionBase):
                         if hasattr(self.auto_renew_fail, "__call__"):
                             # pylint: disable=not-callable
                             self.auto_renew_fail(exc)
+
+                    return None
 
                 # If we're being strict, reraise the Exception
                 else:
