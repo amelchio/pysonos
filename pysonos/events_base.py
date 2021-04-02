@@ -275,6 +275,19 @@ class EventListenerBase(object):
         #: `int`: Port on which to listen.
         self.requested_port_number = config.EVENT_LISTENER_PORT
 
+    def get_listen_ip(self, any_zone):
+        """Find the listen ip address."""
+        if config.EVENT_LISTENER_IP:
+            return config.EVENT_LISTENER_IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect((any_zone.ip_address, config.EVENT_LISTENER_PORT))
+            return s.getsockname()[0]
+        except socket.error:
+            return None
+        finally:
+            s.close()
+
     def start(self, any_zone):
         """Start the event listener listening on the local machine.
 
@@ -288,31 +301,21 @@ class EventListenerBase(object):
         # Find our local network IP address which is accessible to the
         # Sonos net, see http://stackoverflow.com/q/166506
         with self._start_lock:
-            if not self.is_running:
-                # Use configured IP address if there is one, else detect
-                # automatically.
-                if config.EVENT_LISTENER_IP:
-                    ip_address = config.EVENT_LISTENER_IP
-                else:
-                    temp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                    try:
-                        # doesn't have to be reachable
-                        temp_sock.connect(
-                            (any_zone.ip_address, config.EVENT_LISTENER_PORT)
-                        )
-                        ip_address = temp_sock.getsockname()[0]
-                    except socket.error:
-                        log.exception("Could not start Event Listener: check network.")
-                        ip_address = None
-                    finally:
-                        temp_sock.close()
-                if ip_address:  # Otherwise, no point trying to start server
-                    # Check what port we actually got (twisted only)
-                    port = self.listen(ip_address)
-                    if port:
-                        self.address = (ip_address, port)
-                        self.is_running = True
-                        log.debug("Event Listener started")
+            if self.is_running:
+                return
+            # Use configured IP address if there is one, else detect
+            # automatically.
+            ip_address = self.get_listen_ip(any_zone)
+            if not ip_address:
+                log.exception("Could not start Event Listener: check network.")
+                # Otherwise, no point trying to start server
+                return
+            port = self.listen(ip_address)
+            if not port:
+                return
+            self.address = (ip_address, port)
+            self.is_running = True
+            log.debug("Event Listener started")
 
     def stop(self):
         """Stop the Event Listener."""
