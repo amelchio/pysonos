@@ -156,17 +156,30 @@ def _discover_thread(callback, interval, include_invisible, interface_addr):
                 if b"Sonos" not in data:
                     continue
 
-                # pylint: disable=not-callable
-                zone = config.SOCO_CLASS(addr[0])
-                if zone in seen:
+                # Players can be discovered on multiple interfaces and
+                # we do not want to requery the same player once per interface
+                # if we recently polled it in this discovery
+                if addr[0] in seen:
                     continue
 
-                seen.add(zone)
+                # pylint: disable=not-callable
+                soco = config.SOCO_CLASS(addr[0])
 
-                if include_invisible or zone.is_visible:
-                    with threading.current_thread().stop_lock:
-                        if not threading.current_thread().stopped():
-                            callback(zone)
+                if include_invisible:
+                    zones = soco.all_zones
+                else:
+                    zones = soco.visible_zones
+
+                for zone in zones:
+                    if zone.ip_address in seen:
+                        continue
+
+                    seen.add(zone.ip_address)
+
+                    if include_invisible or zone.is_visible:
+                        with threading.current_thread().stop_lock:
+                            if not threading.current_thread().stopped():
+                                callback(zone)
 
             # pylint: disable=broad-except
             except Exception as ex:
