@@ -72,6 +72,7 @@ from __future__ import unicode_literals
 
 import contextlib
 import sys
+import time
 import logging
 import socket
 
@@ -96,6 +97,7 @@ from .events_base import (  # noqa: E402
     EventListenerBase,
     SubscriptionBase,
     SubscriptionsMap,
+    parse_event_xml,
 )
 
 from .exceptions import SoCoException  # noqa: E402
@@ -115,11 +117,42 @@ class EventNotifyHandler(EventNotifyHandlerBase):
         # soco.events_base.EventNotifyHandlerBase.
         self.subscriptions_map = subscriptions_map
 
-    async def notify(self, request):  # pylint: disable=invalid-name
+    async def notify(self, request):
         """Serve a ``NOTIFY`` request by calling `handle_notification`
         with the headers and content.
         """
-        self.handle_notification(request.headers, await request.text())
+        content = await request.text()
+        seq = request.headers["seq"]  # Event sequence number
+        sid = request.headers["sid"]  # Event Subscription Identifier
+        # find the relevant service from the sid
+        # pylint: disable=no-member
+        subscription = self.subscriptions_map.get_subscription(sid)
+        # It might have been removed by another thread
+        if subscription:
+            timestamp = time.time()
+            service = subscription.service
+            self.log_event(seq, service.service_id, timestamp)
+            log.debug("Event content: %s", content)
+            if "x-sonos-http" in content:
+                # parse_event_xml will generate I/O if
+                # x-sonos-http is in the content
+                variables = await asyncio.get_running_loop().run_in_executor(
+                    None, parse_event_xml, content
+                )
+            else:
+                variables = parse_event_xml(content)
+
+            # Build the Event object
+            event = Event(sid, seq, service, timestamp, variables)
+            # pass the event details on to the service so it can update
+            # its cache.
+            # pylint: disable=protected-access
+            service._update_cache_on_event(event)
+            # Pass the event on for handling
+            subscription.send_event(event)
+        else:
+            log.debug("No service registered for %s", sid)
+
         return web.Response(text="OK", status=200)
 
     # pylint: disable=no-self-use, missing-docstring
