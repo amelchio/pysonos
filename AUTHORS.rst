@@ -26,9 +26,9 @@ Contributors
 * David Harding
 * Jeff Hinrichs
 * Jeroen Idserda
+* Hugo van Kemenade
 * Stefan Kögl
 * Todd Neal
-* Kenneth Nielsen
 * nixscripter
 * Kenneth Nielsen
 * Dave O'Connor
@@ -38,3 +38,4 @@ Contributors
 * Jason Ting
 * Peter Toft (pwt)
 * Scott G Waters
+

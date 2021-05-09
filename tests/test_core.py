@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
-import mock
+from unittest import mock
 import pytest
 import requests_mock
 
@@ -19,7 +16,7 @@ from pysonos.xml import XML
 IP_ADDR = "192.168.1.101"
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def moco():
     """A mock soco with fake services and hardcoded is_coordinator.
 
@@ -46,7 +43,7 @@ def moco():
         patch.stop()
 
 
-@pytest.yield_fixture()
+@pytest.fixture()
 def moco_only_on_master():
     """A mock soco with fake services.
 
@@ -190,8 +187,7 @@ ZGS = (
 )
 
 
-
-@pytest.yield_fixture
+@pytest.fixture()
 def moco_zgs(moco):
     """A mock soco with zone group state."""
     moco.zoneGroupTopology.GetZoneGroupState.return_value = {"ZoneGroupState": ZGS}
@@ -577,6 +573,22 @@ class TestAVTransport:
         moco.play_mode = "normal"
         moco.avTransport.SetPlayMode.assert_called_once_with(
             [("InstanceID", 0), ("NewPlayMode", "NORMAL")]
+        )
+
+    def test_available_actions(self, moco):
+        moco.avTransport.GetCurrentTransportActions.return_value = {
+            "Actions": "Set, Stop, Pause, Play, X_DLNA_SeekTime, X_DLNA_SeekTrackNr"
+        }
+        assert moco.available_actions == [
+            "Set",
+            "Stop",
+            "Pause",
+            "Play",
+            "SeekTime",
+            "SeekTrackNr",
+        ]
+        moco.avTransport.GetCurrentTransportActions.assert_called_once_with(
+            [("InstanceID", 0)]
         )
 
     def test_soco_cross_fade2(self, moco):
@@ -1003,6 +1015,52 @@ class TestAVTransport:
         moco.cross_fade = False
         moco.avTransport.SetCrossfadeMode.assert_called_once_with(
             [("InstanceID", 0), ("CrossfadeMode", "0")]
+        )
+
+    def test_shuffle(self, moco):
+        moco.avTransport.GetTransportSettings.return_value = {"PlayMode": "NORMAL"}
+        assert moco.shuffle is False
+        moco.avTransport.GetTransportSettings.assert_called_once_with(
+            [("InstanceID", 0)]
+        )
+        moco.shuffle = True
+        moco.avTransport.SetPlayMode.assert_called_once_with(
+            [("InstanceID", 0), ("NewPlayMode", "SHUFFLE_NOREPEAT")]
+        )
+
+        moco.avTransport.GetTransportSettings.return_value = {
+            "PlayMode": "SHUFFLE_NOREPEAT"
+        }
+        assert moco.shuffle is True
+        moco.avTransport.GetTransportSettings.assert_called_with([("InstanceID", 0)])
+        moco.shuffle = False
+        moco.avTransport.SetPlayMode.assert_called_with(
+            [("InstanceID", 0), ("NewPlayMode", "NORMAL")]
+        )
+
+    def test_repeat(self, moco):
+        moco.avTransport.GetTransportSettings.return_value = {"PlayMode": "NORMAL"}
+        assert moco.repeat is False
+        moco.avTransport.GetTransportSettings.assert_called_with([("InstanceID", 0)])
+        moco.repeat = True
+        moco.avTransport.SetPlayMode.assert_called_with(
+            [("InstanceID", 0), ("NewPlayMode", "REPEAT_ALL")]
+        )
+
+        moco.avTransport.GetTransportSettings.return_value = {"PlayMode": "REPEAT_ALL"}
+        assert moco.repeat is True
+        moco.avTransport.GetTransportSettings.assert_called_with([("InstanceID", 0)])
+        moco.repeat = False
+        moco.avTransport.SetPlayMode.assert_called_with(
+            [("InstanceID", 0), ("NewPlayMode", "NORMAL")]
+        )
+
+        moco.avTransport.GetTransportSettings.return_value = {"PlayMode": "REPEAT_ONE"}
+        assert moco.repeat == "ONE"
+        moco.avTransport.GetTransportSettings.assert_called_with([("InstanceID", 0)])
+        moco.repeat = "ONE"
+        moco.avTransport.SetPlayMode.assert_called_with(
+            [("InstanceID", 0), ("NewPlayMode", "REPEAT_ONE")]
         )
 
     def test_set_sleep_timer(self, moco):

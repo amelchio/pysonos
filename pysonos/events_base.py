@@ -1,17 +1,12 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=not-context-manager
 
 # NOTE: The pylint not-content-manager warning is disabled pending the fix of
 # a bug in pylint. See https://github.com/PyCQA/pylint/issues/782
 
-# Disable while we have Python 2.x compatability
-# pylint: disable=useless-object-inheritance
-
 
 """Base classes used by :py:mod:`soco.events` and
 :py:mod:`soco.events_twisted`."""
 
-from __future__ import unicode_literals
 
 import atexit
 import logging
@@ -19,9 +14,9 @@ import socket
 import time
 import threading
 import weakref
+from queue import Queue
 
 from . import config
-from .compat import Queue
 from .data_structures_entry import from_didl_string
 from .exceptions import SoCoException, SoCoFault, EventParseException
 from .utils import camel_to_underscore
@@ -134,7 +129,7 @@ def parse_event_xml(xml_event):
     return result
 
 
-class Event(object):
+class Event:
     """A read-only object representing a received event.
 
     The values of the evented variables can be accessed via the ``variables``
@@ -191,7 +186,7 @@ class Event(object):
         raise TypeError("Event object does not support attribute assignment")
 
 
-class EventNotifyHandlerBase(object):
+class EventNotifyHandlerBase:
     """Base class for `soco.events.EventNotifyHandler` and
     `soco.events_twisted.EventNotifyHandler`.
     """
@@ -259,7 +254,7 @@ class EventNotifyHandlerBase(object):
         raise NotImplementedError
 
 
-class EventListenerBase(object):
+class EventListenerBase:
     """Base class for `soco.events.EventListener` and
     `soco.events_twisted.EventListener`.
     """
@@ -274,19 +269,6 @@ class EventListenerBase(object):
         self.address = ()
         #: `int`: Port on which to listen.
         self.requested_port_number = config.EVENT_LISTENER_PORT
-
-    def get_listen_ip(self, any_zone):
-        """Find the listen ip address."""
-        if config.EVENT_LISTENER_IP:
-            return config.EVENT_LISTENER_IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect((any_zone.ip_address, config.EVENT_LISTENER_PORT))
-            return s.getsockname()[0]
-        except socket.error:
-            return None
-        finally:
-            s.close()
 
     def start(self, any_zone):
         """Start the event listener listening on the local machine.
@@ -305,7 +287,7 @@ class EventListenerBase(object):
                 return
             # Use configured IP address if there is one, else detect
             # automatically.
-            ip_address = self.get_listen_ip(any_zone)
+            ip_address = get_listen_ip(any_zone.ip_address)
             if not ip_address:
                 log.exception("Could not start Event Listener: check network.")
                 # Otherwise, no point trying to start server
@@ -353,7 +335,7 @@ class EventListenerBase(object):
         raise NotImplementedError
 
 
-class SubscriptionBase(object):
+class SubscriptionBase:
     """Base class for `soco.events.Subscription` and
     `soco.events_twisted.Subscription`
     """
@@ -704,7 +686,7 @@ class SubscriptionBase(object):
         self.unsubscribe()
 
 
-class SubscriptionsMap(object):
+class SubscriptionsMap:
     """Maintains a mapping of sids to `soco.events.Subscription` instances
     and the thread safe lock to go with it. Registers each subscription to
     be unsubscribed at exit.
@@ -787,3 +769,17 @@ class SubscriptionsMap(object):
         """
         with self.subscriptions_lock:
             return len(self.subscriptions)
+
+
+def get_listen_ip(ip_address):
+    """Find the listen ip address."""
+    if config.EVENT_LISTENER_IP:
+        return config.EVENT_LISTENER_IP
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect((ip_address, config.EVENT_LISTENER_PORT))
+        return sock.getsockname()[0]
+    except socket.error:
+        return None
+    finally:
+        sock.close()

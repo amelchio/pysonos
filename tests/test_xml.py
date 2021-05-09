@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
 """Tests for the xml module."""
 
-from __future__ import unicode_literals
 
 from pysonos import xml
 

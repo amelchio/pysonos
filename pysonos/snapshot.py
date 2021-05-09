@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=too-many-instance-attributes
 
 # Disable while we have Python 2.x compatability
@@ -22,7 +21,7 @@ Warning:
 """
 
 
-class Snapshot(object):
+class Snapshot:
     """A snapshot of the current state.
 
     Note:
@@ -167,7 +166,6 @@ class Snapshot(object):
         Args:
             fade (bool): Whether volume should be faded up on restore.
         """
-
         try:
             if self.is_coordinator:
                 self._restore_coordinator()

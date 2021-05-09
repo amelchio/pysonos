@@ -22,7 +22,7 @@ _LOG = logging.getLogger(__name__)
 
 
 class StoppableThread(threading.Thread):
-    """ Thread class with a stop() method. """
+    """Thread class with a stop() method."""
 
     def __init__(self, target, args):
         super().__init__(target=target, args=args, daemon=True)
@@ -40,7 +40,7 @@ class StoppableThread(threading.Thread):
 
 
 def _discover_thread(callback, interval, include_invisible, interface_addr):
-    """ Discover Sonos zones on the local network. """
+    """Discover Sonos zones on the local network."""
 
     def create_socket(interface_addr=None):
         """A helper function for creating a socket for discover purposes.
@@ -179,7 +179,7 @@ def _discover_thread(callback, interval, include_invisible, interface_addr):
 def discover_thread(
     callback, interval=60, include_invisible=False, interface_addr=None, *, start=True
 ):
-    """ Return a started thread with a discovery callback. """
+    """Return a started thread with a discovery callback."""
     thread = StoppableThread(
         target=_discover_thread,
         args=(callback, interval, include_invisible, interface_addr),
