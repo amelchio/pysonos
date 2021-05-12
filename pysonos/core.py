@@ -1503,8 +1503,8 @@ class SoCo(_SocoSingletonBase):
             if index > -1:
                 track["artist"] = trackinfo[:index]
                 track["title"] = trackinfo[index + 3 :]
-            elif trackinfo.startswith("BR P|TYPE=SNG"):
-                # Tagging used by e.g. SiriusXM:
+            elif re.search(r"(BR P\|)?TYPE=SNG\|.*", trackinfo):
+                # Tagging used by e.g. SiriusXM, Apple Music:
                 # "BR P|TYPE=SNG|TITLE 7.15.17 LA|ARTIST Eagles|ALBUM "
                 tags = dict([p.split(" ", 1) for p in trackinfo.split("|") if " " in p])
                 if tags.get("TITLE"):
