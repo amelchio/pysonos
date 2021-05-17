@@ -211,7 +211,7 @@ class EventListener(EventListenerBase):
             if not port:
                 return
             self.address = (ip_address, port)
-            self.session = ClientSession()
+            self.session = ClientSession(raise_for_status=True)
             self.is_running = True
             log.debug("Event Listener started")
 
@@ -502,7 +502,7 @@ class Subscription(SubscriptionBase):
 
         async def _async_make_request():
             response = await self.event_listener.session.request(
-                method, url, headers=headers, raise_for_status=True
+                method, url, headers=headers
             )
             if response.ok:
                 success(response.headers)
