@@ -211,7 +211,7 @@ class EventListener(EventListenerBase):
             if not port:
                 return
             self.address = (ip_address, port)
-            self.session = ClientSession()
+            self.session = ClientSession(raise_for_status=True)
             self.is_running = True
             log.debug("Event Listener started")
 
