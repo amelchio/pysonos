@@ -502,7 +502,7 @@ class Subscription(SubscriptionBase):
 
         async def _async_make_request():
             response = await self.event_listener.session.request(
-                method, url, headers=headers
+                method, url, headers=headers, raise_for_status=True
             )
             if response.ok:
                 success(response.headers)
