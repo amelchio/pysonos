@@ -154,12 +154,12 @@ class Alarm(object):
         #: `bool`: `True` if the alarm should be played on the other speakers
         #: in the same group, `False` otherwise.
         self.include_linked_zones = include_linked_zones
-        self._alarm_id = None
+        self.alarm_id = None
 
     def __repr__(self):
         middle = str(self.start_time.strftime(TIME_FORMAT))
         return "<{0} id:{1}@{2} at {3}>".format(
-            self.__class__.__name__, self._alarm_id, middle, hex(id(self))
+            self.__class__.__name__, self.alarm_id, middle, hex(id(self))
         )
 
     @property
@@ -238,13 +238,13 @@ class Alarm(object):
             ("Volume", self.volume),
             ("IncludeLinkedZones", "1" if self.include_linked_zones else "0"),
         ]
-        if self._alarm_id is None:
+        if self.alarm_id is None:
             response = self.zone.alarmClock.CreateAlarm(args)
-            self._alarm_id = response["AssignedID"]
-            Alarm._all_alarms[self._alarm_id] = self
+            self.alarm_id = response["AssignedID"]
+            Alarm._all_alarms[self.alarm_id] = self
         else:
             # The alarm has been saved before. Update it instead.
-            args.insert(0, ("ID", self._alarm_id))
+            args.insert(0, ("ID", self.alarm_id))
             self.zone.alarmClock.UpdateAlarm(args)
 
     def remove(self):
@@ -253,13 +253,13 @@ class Alarm(object):
         There is no need to call `save`. The Python instance is not deleted,
         and can be saved back to Sonos again if desired.
         """
-        self.zone.alarmClock.DestroyAlarm([("ID", self._alarm_id)])
-        alarm_id = self._alarm_id
+        self.zone.alarmClock.DestroyAlarm([("ID", self.alarm_id)])
+        alarm_id = self.alarm_id
         try:
             del Alarm._all_alarms[alarm_id]
         except KeyError:
             pass
-        self._alarm_id = None
+        self.alarm_id = None
 
 
 def get_alarms(zone=None):
@@ -311,8 +311,8 @@ def get_alarms(zone=None):
             instance = Alarm._all_alarms.get(alarm_id)
         else:
             instance = Alarm(None)
-            instance._alarm_id = alarm_id
-            Alarm._all_alarms[instance._alarm_id] = instance
+            instance.alarm_id = alarm_id
+            Alarm._all_alarms[instance.alarm_id] = instance
 
         instance.start_time = datetime.strptime(
             values["StartTime"], "%H:%M:%S"
