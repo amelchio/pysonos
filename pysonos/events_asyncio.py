@@ -1,14 +1,4 @@
-# -*- coding: utf-8 -*-
-# pylint: disable=not-context-manager,import-error,wrong-import-position
-
-# NOTE: The pylint not-content-manager warning is disabled pending the fix of
-# a bug in pylint. See https://github.com/PyCQA/pylint/issues/782
-
-# Disable while we have Python 2.x compatability
-# pylint: disable=useless-object-inheritance
-
-
-"""Classes to handle Sonos UPnP Events and Subscriptions.
+"""Classes to handle Sonos UPnP Events and Subscriptions using asyncio.
 
 The `Subscription` class from this module will be used in
 :py:mod:`soco.services` if `config.EVENTS_MODULE` is set
@@ -18,7 +8,6 @@ Example:
 
     Run this code, and change your volume, tracks etc::
 
-        from __future__ import print_function
         import logging
 
         logging.basicConfig()
@@ -35,7 +24,7 @@ Example:
             try:
                 pprint(event.variables)
             except Exception as e:
-                pprint("There was an error in print_event:", e)
+                print("There was an error in print_event:", e)
 
 
         def _get_device():
@@ -47,7 +36,7 @@ Example:
         async def main():
             # pick a device at random and use it to get
             # the group coordinator
-            loop = asyncio.get_running_loop()
+            loop = asyncio.get_event_loop()
             device = await loop.run_in_executor(None, _get_device)
             sub = await device.renderingControl.subscribe()
             sub2 = await device.avTransport.subscribe()
@@ -72,36 +61,38 @@ Example:
 
 """
 
-from __future__ import unicode_literals
-
-import contextlib
-import sys
-import time
 import logging
 import socket
+import sys
+import time
+import asyncio
 
-# Hack to make docs build without asyncio installed
-if "sphinx" in sys.modules:
-
-    class Resource(object):  # pylint: disable=no-init
-        """Fake Resource class to use when building docs"""
-
-
-else:
-    import asyncio
+try:
     from aiohttp import ClientSession, web
-
+except ImportError as error:
+    print(
+        """ImportError: {}:
+    Use of the SoCo events_asyncio module requires the 'aiohttp'
+    package and its dependencies to be installed. aiohttp is not
+    installed with SoCo by default due to potential issues installing
+    the dependencies 'mutlidict' and 'yarl' on some platforms.
+    See: https://github.com/SoCo/SoCo/issues/819""".format(
+            error
+        )
+    )
+    sys.exit(1)
 
 # Event is imported for compatibility with events.py
 # pylint: disable=unused-import
 from .events_base import Event  # noqa: F401
 
 from .events_base import (  # noqa: E402
+    get_listen_ip,
+    parse_event_xml,
     EventNotifyHandlerBase,
     EventListenerBase,
     SubscriptionBase,
     SubscriptionsMap,
-    parse_event_xml,
 )
 
 from .exceptions import SoCoException  # noqa: E402
@@ -140,7 +131,7 @@ class EventNotifyHandler(EventNotifyHandlerBase):
             if "x-sonos-http" in content:
                 # parse_event_xml will generate I/O if
                 # x-sonos-http is in the content
-                variables = await asyncio.get_running_loop().run_in_executor(
+                variables = await asyncio.get_event_loop().run_in_executor(
                     None, parse_event_xml, content
                 )
             else:
@@ -164,7 +155,7 @@ class EventNotifyHandler(EventNotifyHandlerBase):
         log.debug("Event %s received for %s service at %s", seq, service_id, timestamp)
 
 
-class EventListener(EventListenerBase):
+class EventListener(EventListenerBase):  # pylint: disable=too-many-instance-attributes
     """The Event Listener.
 
     Runs an http server which is an endpoint for ``NOTIFY``
@@ -186,8 +177,12 @@ class EventListener(EventListenerBase):
         """A stub since the first subscribe calls async_start."""
         return
 
+    def listen(self, ip_address):
+        """A stub since since async_listen is used."""
+        return
+
     async def async_start(self, any_zone):
-        """Start the event listener listening on the local machine under the lock
+        """Start the event listener listening on the local machine under the lock.
 
         Args:
             any_zone (SoCo): Any Sonos device on the network. It does not
@@ -202,7 +197,7 @@ class EventListener(EventListenerBase):
                 return
             # Use configured IP address if there is one, else detect
             # automatically.
-            ip_address = self.get_listen_ip(any_zone)
+            ip_address = get_listen_ip(any_zone.ip_address)
             if not ip_address:
                 log.exception("Could not start Event Listener: check network.")
                 # Otherwise, no point trying to start server
@@ -294,7 +289,7 @@ class EventListener(EventListenerBase):
     # pylint: disable=unused-argument
     def stop_listening(self, address):
         """Stop the listener."""
-        asyncio.create_task(self.async_stop())
+        asyncio.ensure_future(self.async_stop())
 
 
 class Subscription(SubscriptionBase):
@@ -302,7 +297,7 @@ class Subscription(SubscriptionBase):
     Inherits from `soco.events_base.SubscriptionBase`.
     """
 
-    def __init__(self, service, callback=None, session=None):
+    def __init__(self, service, callback=None):
         """
         Args:
             service (Service): The SoCo `Service` to which the subscription
@@ -379,18 +374,17 @@ class Subscription(SubscriptionBase):
             finally:
                 self.subscriptions_map.finished_subscribing()
 
-        asyncio.create_task(_async_wrap_subscribe())
+        asyncio.ensure_future(_async_wrap_subscribe())
         return future
 
     def _log_exception(self, exc):
         """Log an exception during subscription."""
         msg = (
-            "An Exception occurred: {}. Subscription to"
-            + " {}, sid: {} has been cancelled".format(
-                exc,
-                self.service.base_url + self.service.event_subscription_url,
-                self.sid,
+            "An Exception occurred: {}.".format(exc)
+            + " Subscription to {},".format(
+                self.service.base_url + self.service.event_subscription_url
             )
+            + " sid: {} has been cancelled".format(self.sid)
         )
         log.exception(msg)
 
@@ -471,12 +465,12 @@ class Subscription(SubscriptionBase):
 
     def _auto_renew_start(self, interval):
         """Starts the auto_renew loop."""
-        self._auto_renew_task = asyncio.get_running_loop().call_later(
+        self._auto_renew_task = asyncio.get_event_loop().call_later(
             interval, self._auto_renew_run, interval
         )
 
     def _auto_renew_run(self, interval):
-        asyncio.create_task(self.renew(is_autorenew=True))
+        asyncio.ensure_future(self.renew(is_autorenew=True))
         self._auto_renew_start(interval)
 
     def _auto_renew_cancel(self):
@@ -510,6 +504,22 @@ class Subscription(SubscriptionBase):
         return _async_make_request()
 
 
+class nullcontext:  # pylint: disable=invalid-name
+    """Context manager that does no additional processing.
+
+    Backport from python 3.7+ for older pythons.
+    """
+
+    def __init__(self, enter_result=None):
+        self.enter_result = enter_result
+
+    def __enter__(self):
+        return self.enter_result
+
+    def __exit__(self, *excinfo):
+        pass
+
+
 class SubscriptionsMapAio(SubscriptionsMap):
     """Maintains a mapping of sids to `soco.events_asyncio.Subscription`
     instances. Registers each subscription to be unsubscribed at exit.
@@ -523,7 +533,7 @@ class SubscriptionsMapAio(SubscriptionsMap):
         # that have started but not completed. This is
         # to prevent the event listener from being stopped prematurely
         self._pending = 0
-        self.subscriptions_lock = contextlib.nullcontext()
+        self.subscriptions_lock = nullcontext()
 
     def register(self, subscription):
         """Register a subscription by updating local mapping of sid to

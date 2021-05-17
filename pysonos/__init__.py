@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """A SoCo fork with fixes for Home Assistant."""
 
 # There is no need for all strings here to be unicode, and Py2 cannot import
@@ -10,8 +8,6 @@
 
 
 import logging
-import warnings
-import sys
 
 from .core import SoCo
 from .discovery import discover, discover_thread
@@ -19,8 +15,8 @@ from .exceptions import SoCoException, UnknownSoCoException
 
 # Will be parsed by setup.py to determine package metadata
 __author__ = "Anders Melchiorsen <amelchio@nogoto.net>"
-# Please add the suffix "+" to the version after release, to make it
-# possible infer whether in development code from the version string
+# Please increment the version number and add the suffix "-dev" after
+# a release, to make it possible to identify in-development code
 __version__ = "0.0.47"
 __website__ = "https://github.com/amelchio/pysonos"
 __license__ = "MIT License"
@@ -39,9 +35,3 @@ __all__ = [
 # Avoids spurious error messages if no logger is configured by the user
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
-
-if sys.version_info.major < 3:
-    warnings.warn(
-        "Version 0.19 of SoCo is the last to support Python 2.7",
-        stacklevel=2,
-    )
