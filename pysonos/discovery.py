@@ -160,7 +160,7 @@ def _discover_thread(callback, interval, include_invisible, interface_addr):
                 zone = config.SOCO_CLASS(addr[0])
 
                 data = data.decode("UTF-8")
-                header, payload = data.split("\r\n", 1)
+                _, payload = data.split("\r\n", 1)
                 fields = dict([f.split(":", 1) for f in payload.splitlines() if f])
                 zone.boot_seqnum = fields.get("X-RINCON-BOOTSEQ")
 
