@@ -275,6 +275,7 @@ class SoCo(_SocoSingletonBase):
         #: The speaker's ip address
         self.ip_address = ip_address
         self.speaker_info = {}  # Stores information about the current speaker
+        self.boot_seqnum = None
 
         # The services which we use
         # pylint: disable=invalid-name
