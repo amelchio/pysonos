@@ -100,10 +100,7 @@ def parse_event_xml(xml_event):
                         # Wrap any parsing exception in a SoCoFault, so the
                         # user can handle it
                         try:
-                            didl = from_didl_string(value)
-                            if not didl:
-                                continue
-                            value = didl[0]
+                            value = from_didl_string(value)[0]
                         except SoCoException as original_exception:
                             log.debug(
                                 "Event contains illegal metadata"

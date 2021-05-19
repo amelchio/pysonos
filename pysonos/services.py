@@ -41,7 +41,7 @@ import requests
 from .cache import Cache
 from . import events
 from . import config
-from .exceptions import SoCoException, SoCoUPnPException, UnknownSoCoException
+from .exceptions import SoCoUPnPException, UnknownSoCoException
 from .utils import prettify
 from .xml import XML, illegal_xml_re
 
@@ -476,15 +476,12 @@ class Service:
         log.debug("Sending %s %s to %s", action, args, self.soco.ip_address)
         log.debug("Sending %s, %s", headers, prettify(body))
         # Convert the body to bytes, and send it.
-        try:
-            response = requests.post(
-                self.base_url + self.control_url,
-                headers=headers,
-                data=body.encode("utf-8"),
-                timeout=20,
-            )
-        except requests.exceptions.RequestException as ex:
-            raise SoCoException("Connection error: " + str(ex)) from ex
+        response = requests.post(
+            self.base_url + self.control_url,
+            headers=headers,
+            data=body.encode("utf-8"),
+            timeout=20,
+        )
 
         log.debug("Received %s, %s", response.headers, response.text)
         status = response.status_code
@@ -702,13 +699,9 @@ class Service:
                 name = state.findtext("{}name".format(ns))
                 datatype = state.findtext("{}dataType".format(ns))
                 default = state.findtext("{}defaultValue".format(ns))
-                value_list_elt = state.find("{}allowedValueList".format(ns))
-                if value_list_elt is None:
-                    value_list_elt = ()
+                value_list_elt = state.find("{}allowedValueList".format(ns)) or ()
                 value_list = [item.text for item in value_list_elt] or None
-                value_range_elt = state.find("{}allowedValueRange".format(ns))
-                if value_range_elt is None:
-                    value_range_elt = ()
+                value_range_elt = state.find("{}allowedValueRange".format(ns)) or ()
                 value_range = [item.text for item in value_range_elt] or None
                 vartypes[name] = Vartype(datatype, default, value_list, value_range)
         # find all the actions

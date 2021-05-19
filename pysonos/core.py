@@ -10,7 +10,6 @@ import re
 import socket
 from functools import wraps
 from xml.sax.saxutils import escape
-import xml.etree.ElementTree
 from xml.parsers.expat import ExpatError
 import warnings
 import xmltodict
@@ -1119,13 +1118,6 @@ class SoCo(_SocoSingletonBase):
             raise NotSupportedException from error
 
     def _parse_zone_group_state(self):
-        """Parse zone group state, catching some exceptions."""
-        try:
-            self.__parse_zone_group_state_wrapped()
-        except xml.etree.ElementTree.ParseError as ex:
-            raise SoCoException("Parse error: " + str(ex)) from ex
-
-    def __parse_zone_group_state_wrapped(self):
         """The Zone Group State contains a lot of useful information.
 
         Retrieve and parse it, and populate the relevant properties.
@@ -1212,12 +1204,8 @@ class SoCo(_SocoSingletonBase):
         # and the set of all members
         self._all_zones.clear()
         self._visible_zones.clear()
-        # The response is wrapped in ZoneGroups from Sonos 10.1
-        zonegroups = tree.find("ZoneGroups")
-        if zonegroups is not None:
-            tree = zonegroups
         # Loop over each ZoneGroup Element
-        for group_element in tree.findall("ZoneGroup"):
+        for group_element in tree.find("ZoneGroups").findall("ZoneGroup"):
             coordinator_uid = group_element.attrib["Coordinator"]
             group_uid = group_element.attrib["ID"]
             group_coordinator = None
