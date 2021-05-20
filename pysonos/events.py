@@ -110,7 +110,7 @@ class EventNotifyHandler(BaseHTTPRequestHandler, EventNotifyHandlerBase):
 
     # pylint: disable=no-self-use, missing-docstring
     def log_event(self, seq, service_id, timestamp):
-        log.debug(
+        log.info(
             "Event %s received for %s service on thread %s at %s",
             seq,
             service_id,
@@ -145,7 +145,7 @@ class EventServerThread(threading.Thread):
         Handling of requests is delegated to an instance of the
         `EventNotifyHandler` class.
         """
-        log.debug("Event listener running on %s", self.server.server_address)
+        log.info("Event listener running on %s", self.server.server_address)
         # Listen for events until told to stop
         while not self.stop_flag.is_set():
             self.server.handle_request()
@@ -229,7 +229,7 @@ class EventListener(EventListenerBase):
         self._listener_thread.join(1)
         # check if join timed out and issue a warning if it did
         if self._listener_thread.is_alive():
-            log.debug("Event Listener did not shutdown gracefully.")
+            log.warning("Event Listener did not shutdown gracefully.")
 
 
 class Subscription(SubscriptionBase):

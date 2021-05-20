@@ -21,7 +21,7 @@ class SoCoPlugin:
 
     def __init__(self, soco):
         cls = self.__class__.__name__
-        _LOG.debug("Initializing SoCo plugin %s", cls)
+        _LOG.info("Initializing SoCo plugin %s", cls)
         self.soco = soco
 
     @property
@@ -33,7 +33,7 @@ class SoCoPlugin:
     def from_name(cls, fullname, soco, *args, **kwargs):
         """Instantiate a plugin by its full name."""
 
-        _LOG.debug("Loading plugin %s", fullname)
+        _LOG.info("Loading plugin %s", fullname)
 
         parts = fullname.split(".")
         modname = ".".join(parts[:-1])
@@ -42,6 +42,6 @@ class SoCoPlugin:
         mod = importlib.import_module(modname)
         class_ = getattr(mod, clsname)
 
-        _LOG.debug("Loaded class %s", class_)
+        _LOG.info("Loaded class %s", class_)
 
         return class_(soco, *args, **kwargs)
