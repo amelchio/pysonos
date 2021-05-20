@@ -102,7 +102,7 @@ def parse_event_xml(xml_event):
                         try:
                             value = from_didl_string(value)[0]
                         except SoCoException as original_exception:
-                            log.debug(
+                            log.warning(
                                 "Event contains illegal metadata"
                                 "for '%s'.\n"
                                 "Error message: '%s'\n"
@@ -244,7 +244,7 @@ class EventNotifyHandlerBase:
             # Pass the event on for handling
             subscription.send_event(event)
         else:
-            log.debug("No service registered for %s", sid)
+            log.info("No service registered for %s", sid)
 
     # pylint: disable=missing-docstring
     def log_event(self, seq, service_id, timestamp):
@@ -302,7 +302,7 @@ class EventListenerBase:
             return
         self.is_running = False
         self.stop_listening(self.address)
-        log.debug("Event Listener stopped")
+        log.info("Event Listener stopped")
 
     # pylint: disable=missing-docstring
     def listen(self, ip_address):
@@ -443,7 +443,7 @@ class SubscriptionBase:
                 self.timeout = int(timeout.lstrip("Second-"))
             self._timestamp = time.time()
             self.is_subscribed = True
-            log.debug(
+            log.info(
                 "Subscribed to %s, sid: %s",
                 service.base_url + service.event_subscription_url,
                 self.sid,
@@ -492,7 +492,7 @@ class SubscriptionBase:
             log_msg = "Autorenewing subscription %s"
         else:
             log_msg = "Renewing subscription %s"
-        log.debug(log_msg, self.sid)
+        log.info(log_msg, self.sid)
 
         if self._has_been_unsubscribed:
             raise SoCoException("Cannot renew subscription once unsubscribed")
@@ -523,7 +523,7 @@ class SubscriptionBase:
                 self.timeout = int(timeout.lstrip("Second-"))
             self._timestamp = time.time()
             self.is_subscribed = True
-            log.debug(
+            log.info(
                 "Renewed subscription to %s, sid: %s",
                 self.service.base_url + self.service.event_subscription_url,
                 self.sid,
@@ -561,7 +561,7 @@ class SubscriptionBase:
 
         # pylint: disable=missing-docstring, unused-argument
         def success(*arg):
-            log.debug(
+            log.info(
                 "Unsubscribed from %s, sid: %s",
                 self.service.base_url + self.service.event_subscription_url,
                 self.sid,
@@ -659,7 +659,7 @@ class SubscriptionBase:
         # Cancel any auto renew
         self._auto_renew_cancel()
         if msg:
-            log.debug(msg)
+            log.info(msg)
 
     @property
     def time_left(self):

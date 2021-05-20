@@ -96,7 +96,7 @@ def attempt_datastructure_upgrade(didl_item):
             # The data structure should be upgraded, but there is an entry
             # missing from DIDL_NAME_TO_QUALIFIED_MS_NAME. Log this as a
             # warning.
-            _LOG.debug(
+            _LOG.warning(
                 "DATA STRUCTURE UPGRADE FAIL. Unable to upgrade music library "
                 "data structure to music service data structure because an "
                 "entry is missing for %s in DIDL_NAME_TO_QUALIFIED_MS_NAME. "
