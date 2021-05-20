@@ -1507,7 +1507,6 @@ class SoCo(_SocoSingletonBase):
             ]
         )
 
-    # pylint: disable=too-many-branches
     def get_current_track_info(self):
         """Get information about the currently playing track.
 
