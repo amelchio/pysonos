@@ -157,6 +157,7 @@ class SoCo(_SocoSingletonBase):
         ramp_to_volume
         set_relative_volume
         get_current_track_info
+        get_current_media_info
         get_speaker_info
         get_current_transport_info
 
@@ -1629,6 +1630,8 @@ class SoCo(_SocoSingletonBase):
             dict: A dictionary containing information about the currently
             playing media: uri, channel.
 
+        If we're unable to return data for a field, we'll return an empty
+        string.
         """
         response = self.avTransport.GetMediaInfo([("InstanceID", 0)])
         media = {"uri": "", "channel": ""}
