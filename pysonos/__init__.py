@@ -17,7 +17,7 @@ from .exceptions import SoCoException, UnknownSoCoException
 __author__ = "Anders Melchiorsen <amelchio@nogoto.net>"
 # Please increment the version number and add the suffix "-dev" after
 # a release, to make it possible to identify in-development code
-__version__ = "0.0.51"
+__version__ = "0.0.52"
 __website__ = "https://github.com/amelchio/pysonos"
 __license__ = "MIT License"
 
