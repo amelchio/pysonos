@@ -498,7 +498,7 @@ class Service:
             return result
         elif status == 405:
             raise NotSupportedException(
-                f"{action} not supported on {self.soco.ip_address}"
+                "{} not supported on {}".format(action, self.soco.ip_address)
             )
         elif status == 500:
             # Internal server error. UPnP requires this to be returned if the
